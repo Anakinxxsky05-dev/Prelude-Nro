@@ -22,6 +22,7 @@ typedef enum {
     LANG_ES,    // Español
     LANG_PT,    // Português
     LANG_FR,    // Français
+    LANG_ZH,    // 中文
 } Lang;
 
 typedef enum {
@@ -127,6 +128,7 @@ typedef enum {
     STR_LANG_ES,                // "Español"
     STR_LANG_PT,                // "Português"
     STR_LANG_FR,                // "Français"
+    STR_LANG_ZH,                // "中文"
     STR_LANG_DEFAULT,           // "(Default)"
     STR_LANG_A_SELECT,          // "A: Select"
     STR_LANG_B_BACK,            // "B: Back"
