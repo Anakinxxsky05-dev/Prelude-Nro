@@ -81,6 +81,7 @@ const FlagEntry g_flags[FLAG_COUNT] = {
 #define EXEFS_PATCHES_DIR "sdmc:/atmosphere/exefs_patches"
 #define FLAG_FOLDER_PREFIX "Nextendo Country "
 #define BUILD_ID "FE941ED5BA14BE5D505698DA1BBF4FE7"
+#define BUILD_ID_400 "2C336A9BCF79C3040CE506CDD391B578"  // MK8D 4.0.0 (voir plus bas)
 // Plus de telechargement : le patch est fabrique localement (voir flag_build_ips).
 // L amont reste alyeri/nextendo-mk8d-country-flags, dont ce code reproduit la sortie
 // a l octet pres pour les 110 pays qu il publie.
@@ -131,6 +132,15 @@ void flag_remove(void) {
             snprintf(ipsPath, sizeof(ipsPath), "%s/%s/" BUILD_ID ".ips",
                      EXEFS_PATCHES_DIR, e->d_name);
             remove(ipsPath);
+
+            // Le patch 4.0.0 vit dans le MEME dossier. L'oublier laisserait un dossier
+            // orphelin que rmdir ne pourrait pas supprimer, et le pays "desinstalle"
+            // continuerait de s'appliquer aux joueurs en 4.0.0 — un retrait qui ne retire
+            // rien est pire qu'un retrait qui echoue bruyamment.
+            char ipsPath400[FS_MAX_PATH];
+            snprintf(ipsPath400, sizeof(ipsPath400), "%s/%s/" BUILD_ID_400 ".ips",
+                     EXEFS_PATCHES_DIR, e->d_name);
+            remove(ipsPath400);
             char dirPath[FS_MAX_PATH];
             snprintf(dirPath, sizeof(dirPath), "%s/%s", EXEFS_PATCHES_DIR, e->d_name);
             rmdir(dirPath);
@@ -199,6 +209,74 @@ static void putMovzImm(unsigned char *p, unsigned int imm16) {
 // flag_build_ips ecrit dans out le patch du pays demande. code doit etre deux lettres
 // majuscules ASCII ; tout le reste est refuse plutot que de produire un patch qui
 // ferait ecrire n'importe quoi dans l'ExeFS du jeu.
+
+// ---------------------------------------------------------------------------------------
+// MK8D 4.0.0 — la mise a jour Switch 2 du 1er septembre 2026.
+//
+// Le build id change avec la version du jeu, donc le patch de la 3.0.5 ne s'applique
+// simplement PAS sur la 4.0.0 : Atmosphere ne regarde que le fichier dont le nom correspond
+// au build installe. Les deux sont donc ecrits COTE A COTE dans le meme dossier, et la
+// console choisit toute seule. Aucune detection de version cote Prelude, rien a deviner.
+//
+// Le patch 4.0.0 n'est pas le meme fichier avec d'autres adresses. Il partage les cinq
+// premiers points d'ecriture de la 3.0.5, puis en ajoute QUATRE, et surtout les cinq
+// ecritures "empaquetees" different sur deux points :
+//
+//   3.0.5 : registre w8, immediat a | (z << 8)
+//   4.0.0 : registre w0, immediat (a << 8) | z
+//
+// Les deux ont ete trouves en comparant les fichiers amont, pas deduits — se tromper de
+// registre ou d'ordre produit un patch qui s'installe sans broncher et ne fait rien.
+//
+// VERIFIE : cette table regenere les 110 pays du depot amont
+// (alyeri/nextendo-mk8d-country-flags, dossier Consoles/Atmosphere-4.0.0) OCTET POUR OCTET.
+#define FLAG_IPS_LEN_400 119
+
+#define FLAG400_OFF_A1 10
+#define FLAG400_OFF_Z1 18
+#define FLAG400_OFF_A2 43
+#define FLAG400_OFF_Z2 51
+static const int FLAG400_OFF_PK[5] = { 76, 85, 94, 103, 112 };
+
+static const unsigned char FLAG_IPS_TEMPLATE_400[FLAG_IPS_LEN_400] = {
+    0x50, 0x41, 0x54, 0x43, 0x48, 0x87, 0x0F, 0x78, 0x00, 0x1C, 0xA8, 0x08,
+    0x80, 0x52, 0x68, 0x02, 0x02, 0x39, 0x68, 0x0A, 0x80, 0x52, 0x68, 0x06,
+    0x02, 0x39, 0xE8, 0x03, 0x00, 0x32, 0x68, 0x0E, 0x02, 0x39, 0x03, 0x00,
+    0x00, 0x14, 0x87, 0x10, 0x08, 0x00, 0x1C, 0xA8, 0x08, 0x80, 0x52, 0x68,
+    0x02, 0x02, 0x39, 0x68, 0x0A, 0x80, 0x52, 0x68, 0x06, 0x02, 0x39, 0xE8,
+    0x03, 0x00, 0x32, 0x68, 0x0E, 0x02, 0x39, 0x03, 0x00, 0x00, 0x14, 0x48,
+    0x32, 0xD0, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x84, 0xCA, 0xD0, 0x00,
+    0x04, 0x60, 0xAA, 0x88, 0x52, 0x87, 0x8B, 0x84, 0x00, 0x04, 0x60, 0xAA,
+    0x88, 0x52, 0x87, 0x8B, 0xFC, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x87,
+    0x8E, 0x98, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x45, 0x4F, 0x46,
+};
+
+// putMovzImmReg : comme putMovzImm mais le registre de destination est explicite.
+// La 3.0.5 ecrit dans w8 partout ; la 4.0.0 utilise w0 pour ses cinq empaquetees.
+static void putMovzImmReg(unsigned char *p, unsigned int imm16, unsigned int reg) {
+    unsigned int w = 0x52800000u | ((imm16 & 0xFFFFu) << 5) | (reg & 0x1Fu);
+    p[0] = (unsigned char)(w);
+    p[1] = (unsigned char)(w >> 8);
+    p[2] = (unsigned char)(w >> 16);
+    p[3] = (unsigned char)(w >> 24);
+}
+
+static bool flag_build_ips_400(const char *code, unsigned char out[FLAG_IPS_LEN_400]) {
+    if (!code || !code[0] || !code[1] || code[2]) return false;
+    unsigned int a = (unsigned char)code[0];
+    unsigned int z = (unsigned char)code[1];
+    if (a < 'A' || a > 'Z' || z < 'A' || z > 'Z') return false;
+
+    memcpy(out, FLAG_IPS_TEMPLATE_400, FLAG_IPS_LEN_400);
+    putMovzImmReg(out + FLAG400_OFF_A1, a, 8);
+    putMovzImmReg(out + FLAG400_OFF_Z1, z, 8);
+    putMovzImmReg(out + FLAG400_OFF_A2, a, 8);
+    putMovzImmReg(out + FLAG400_OFF_Z2, z, 8);
+    for (int i = 0; i < 5; i++)
+        putMovzImmReg(out + FLAG400_OFF_PK[i], (a << 8) | z, 0);
+    return true;
+}
+
 static bool flag_build_ips(const char *code, unsigned char out[FLAG_IPS_LEN]) {
     if (!code || !code[0] || !code[1] || code[2]) return false;
     unsigned int a = (unsigned char)code[0];
@@ -245,6 +323,29 @@ int flag_install(const char *code) {
 
     if (!ok) { remove(ipsPath); return -2; }
 
+    // ET LE PATCH DE LA 4.0.0, a cote, dans le meme dossier.
+    //
+    // Atmosphere n'applique que le fichier dont le nom correspond au build id du jeu
+    // installe, donc les deux cohabitent sans se gener et le joueur n'a rien a choisir.
+    // C'est ce qui evite d'avoir a deviner sa version de Mario Kart depuis Prelude — et
+    // celui qui met a jour son jeu n'a pas a repasser par ici.
+    //
+    // Un echec ici n'annule PAS le patch 3.0.5 deja ecrit : mieux vaut une version
+    // couverte que zero. On le signale par le code de retour, l'appelant decide.
+    unsigned char ips400[FLAG_IPS_LEN_400];
+    bool ok400 = false;
+    if (flag_build_ips_400(code, ips400)) {
+        char ipsPath400[FS_MAX_PATH];
+        snprintf(ipsPath400, sizeof(ipsPath400), "%s/" BUILD_ID_400 ".ips", flagDir);
+
+        FILE *f400 = fopen(ipsPath400, "wb");
+        if (f400) {
+            ok400 = (fwrite(ips400, 1, FLAG_IPS_LEN_400, f400) == FLAG_IPS_LEN_400);
+            fclose(f400);
+            if (!ok400) remove(ipsPath400);
+        }
+    }
+
     fsdevCommitDevice("sdmc");
-    return 0;
+    return ok400 ? 0 : 1;
 }
