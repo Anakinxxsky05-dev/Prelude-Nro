@@ -478,7 +478,34 @@
 //           libimgui_smash et libssbu_pia_manager viennent d'ailleurs (Skyline / ARCropolis).
 //           Deballer l'archive par-dessus les effacerait et le mod ne chargerait plus.
 
-#define NEXTENDO_BUILD 62
+// build 63 : v3.4.1. Deux choses qui vivent sur la CARTE SD et qui, jusqu'ici, ne suivaient
+//           pas Prelude quand il se mettait a jour.
+//
+//           (0) LES MODS PERIMES SE SIGNALENT. Le mod SSBU et le drapeau MK8D sont poses sur
+//           la SD ; republier Prelude avec des versions plus recentes ne les touchait PAS. Le
+//           joueur mettait a jour, se croyait a jour, et gardait l'ancien mod indefiniment —
+//           ce qui est arrive tout l'ete. La verification tourne dans le meme fil que celle
+//           de Prelude lui-meme et, s'il y a lieu, une question A/B est posee au demarrage.
+//
+//           On compare le CONTENU et non la taille : entre la v1.4.0 et la v1.4.1 du mod,
+//           libssbu_online_deluxe.nro et libssbusync.nro ont change en gardant exactement la
+//           meme taille (1433600 et 376832 octets). Une comparaison par taille n'aurait rien
+//           vu et la question ne serait jamais apparue.
+//
+//           Rien n'est propose quand le mod n'est pas installe — "mettre a jour" ce que le
+//           joueur n'a jamais voulu serait une installation deguisee — ni quand Prelude
+//           lui-meme est perime, puisque sa mise a jour reinstallera les mods de toute facon.
+//
+//           Pour le drapeau, ce n'est pas une version qu'on compare mais une ABSENCE : le
+//           dossier doit contenir les patches des DEUX versions de MK8D. Celui qui a installe
+//           son pays avant le 2026-09-07 n'a que celui de la 3.0.5, et le jour ou il passe en
+//           4.0.0 son drapeau cesse simplement de s'appliquer sans que rien ne le dise.
+//
+//           (1) BATAILLE SPECIALE DE SMB35. Installation de l'evenement par le meme canal
+//           BCAT que Splatoon 2 (/api/bcat/<titleId>), avec une destination differente : la
+//           racine du romfs du jeu en LayeredFS. Nouvelle entree dans le rail.
+
+#define NEXTENDO_BUILD 63
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec

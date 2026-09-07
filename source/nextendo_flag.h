@@ -37,6 +37,8 @@ void flag_detect_current(char out_code[3]);
 // Requires socketInitializeDefault() + sslInitialize() to have been called.
 // Returns 0 on success, -1 on network error, -2 on write error.
 int flag_install(const char *code);
+// true si un drapeau est pose sans le patch d'une des versions du jeu ; rend son code.
+bool flag_needs_update(char out_code[3]);
 
 // Remove all Nextendo Country flag patches from sdmc:/atmosphere/exefs_patches/.
 void flag_remove(void);
