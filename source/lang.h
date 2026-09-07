@@ -164,6 +164,13 @@ typedef enum {
     STR_RAIL_FLAG,                    // "Country"
     STR_RAIL_SSBU,                    // "Smash"       (L)
     STR_RAIL_S3,                      // "Splatoon 3"  entree du rail
+    STR_RAIL_SMB35,                   // "Mario 35"    entree du rail
+    STR_DESC_SMB35,                   // description du panneau Mario 35
+    STR_STATUS_DOWNLOAD_SMB35,        // pendant le telechargement
+    STR_STATUS_SMB35_OK,              // titre du resultat
+    STR_STATUS_SMB35_OK_DESC,         // detail du resultat
+    STR_STATUS_NO_EVENT,              // 204 : aucun evenement publie
+    STR_STATUS_NO_EVENT_DESC,
     STR_RAIL_LANG,                    // "Language"    (R)
 
     // --- Section Splatoon 3 : etat des correctifs ---
@@ -201,6 +208,13 @@ typedef enum {
     STR_SSBU_OC_OFF_DESC,             // "Compatible with Horizon OC / sys-clk"
 
     // --- Sauvegarde des hosts de l'utilisateur (premier lancement / mise a jour) ---
+    // --- Mods perimes (le mod SSBU / le drapeau MK8D vivent sur la SD et ne suivent pas
+    //     une mise a jour de Prelude tout seuls) ---
+    STR_MODS_TITLE,             // "Update your installed mods?"
+    STR_MODS_BODY1,             // ce qui est perime et pourquoi ca se voit pas
+    STR_MODS_BODY2,             // ce que fait A / B
+    STR_MODS_UPDATED,           // status apres reinstallation
+    STR_MODS_FAILED,            // status si rien n a pu etre reinstalle
     STR_BACKUP_TITLE,           // "Back up your current DNS files?"
     STR_BACKUP_BODY1,           // ce que Prelude va ecraser
     STR_BACKUP_BODY2,           // ou la copie est rangee

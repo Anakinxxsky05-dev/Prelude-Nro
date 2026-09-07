@@ -54,6 +54,8 @@ Result nextendo_reboot(void);
 // Install copie romfs:/ssbu_quickplay/ vers sdmc:. Remove fait l'inverse.
 bool nextendo_ssbu_is_installed(void);
 bool nextendo_ssbu_install(void);
+// true si le mod est installe mais differe de celui embarque dans CE Prelude.
+bool nextendo_ssbu_needs_update(void);
 void nextendo_ssbu_remove(void);
 
 // Overclock EMBARQUE du mod (plugin libnx_over.nro + sysmodule 00FF0000A11CE0FF).

@@ -44,6 +44,7 @@
 
 #define BCAT_HOST       "nextendo.network"
 #define BCAT_API_PATH   "/api/bcat/%s"
+#define LOG_PATH_SMB35  "sdmc:/nextendo_bcat_smb35.log"
 #define ZIP_TMP         "sdmc:/nextendo_bcat_tmp.zip"
 #define ROMFS_BCAT_BASE "romfs:/bcatdata"
 #define LAYEREDFS_BASE  "sdmc:/atmosphere/contents/%s/romfs"
@@ -322,6 +323,61 @@ static bool copyStatic(const char *titleId, const char *romfsBase) {
         ok = copyTreeSimple(dumSrc, dumDst) && ok;
 
     return ok;
+}
+
+// ------------------------------------------------------------------
+//  Super Mario Bros. 35 — Batailles Speciales.
+//
+//  MEME MECANISME QUE S2, destination differente. Le jeu lit son evenement a
+//  DEUX endroits et fusionne les deux listes :
+//      Contents:/Dat/sp_battle.dat   (son propre romfs — c'est ici qu'on ecrit)
+//      sp_battle_info/master         (le vrai BCAT)
+//  Comme S2, on ne touche pas au save de distribution : on pose le fichier la ou
+//  le jeu ira le chercher dans son romfs, et LayeredFS fait le reste.
+//
+//  Le fichier livre par le jeu est UN SEUL octet nul : le parseur exige '{' en
+//  premiere position et abandonne sinon. Un contenu qu'il ne comprend pas ne
+//  casse donc rien — il n'y a simplement pas d'evenement.
+nextendo_bcat_result nextendo_bcat_install_smb35(void) {
+    g_log = fopen(LOG_PATH_SMB35, "w");
+    logf_("=== Nextendo BCAT install SMB35 ===");
+
+    static const char SMB35_ID[] = "0100277011F1A000";
+    char lower[32];
+    snprintf(lower, sizeof(lower), "%s", SMB35_ID);
+    toLowerInPlace(lower);
+
+    logf_("  GET /api/bcat/%s", lower);
+    int rc = downloadZip(lower);
+    if (rc == 204) {
+        logf_("  204 : aucun evenement publie");
+        if (g_log) { fclose(g_log); g_log = NULL; }
+        return NB_NO_SCHEDULE;
+    }
+    if (rc != 0) {
+        logf_("  ECHEC telechargement (status=%d ssl_rc=0x%x)", rc, (unsigned)g_net_ssl_rc);
+        if (g_log) { fclose(g_log); g_log = NULL; }
+        if (rc == NET_ERR_TIMEOUT)  return NB_NET_TIMEOUT;
+        if (rc == NET_ERR_CONNECT)  return NB_NET_CONNECT;
+        if (rc == BCAT_ERR_WRITE)   return NB_WRITE_FAIL;
+        if (rc > 0)                 return NB_NET_HTTP_ERR;
+        return NB_NET_FAIL;
+    }
+
+    // Destination : la RACINE du romfs, pas un sous-dossier. Le zip porte deja
+    // "Dat/sp_battle.dat", donc extraire a la racine met le fichier au bon endroit.
+    char romfsBase[FS_MAX_PATH];
+    snprintf(romfsBase, sizeof(romfsBase), LAYEREDFS_BASE, SMB35_ID);
+    logf_("  dest: %s", romfsBase);
+
+    bool ok = extractZip(romfsBase);
+    fsdevCommitDevice("sdmc");
+    remove(ZIP_TMP);
+    fsdevCommitDevice("sdmc");
+
+    logf_("=== resultat: %s ===", ok ? "OK" : "ECHEC");
+    if (g_log) { fclose(g_log); g_log = NULL; }
+    return ok ? NB_OK : NB_WRITE_FAIL;
 }
 
 nextendo_bcat_result nextendo_bcat_install_s2(void) {

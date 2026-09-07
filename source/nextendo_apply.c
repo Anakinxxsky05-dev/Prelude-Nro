@@ -989,6 +989,82 @@ bool nextendo_ssbu_is_installed(void) {
     return stat(SSBU_MOD_SENTINEL, &st) == 0;
 }
 
+
+// --- Le mod installe est-il celui que porte CE Prelude ? -------------------------------
+//
+// Prelude embarque le mod SSBU dans son romfs. Quand on republie Prelude avec une version
+// plus recente du mod, la copie deja posee sur la SD ne bouge PAS toute seule : le joueur
+// met a jour Prelude, croit etre a jour, et garde l'ancien mod indefiniment. C'est
+// exactement ce qui est arrive entre aout et la v3.4.0.
+//
+// ON COMPARE LE CONTENU, PAS LA TAILLE. Mesure du 2026-09-07 en passant le mod de la v1.4.0
+// a la v1.4.1 : libssbu_online_deluxe.nro et libssbusync.nro ont change de contenu en
+// gardant EXACTEMENT la meme taille, 1433600 et 376832 octets. Une comparaison par taille
+// n'aurait rien vu et le popup ne serait jamais apparu.
+//
+// La taille sert quand meme de test rapide AVANT de lire : elle elimine la plupart des cas
+// sans toucher au contenu, et seuls les fichiers de meme taille sont lus en entier.
+static bool sameFileContent(const char *a, const char *b) {
+    struct stat sa, sb;
+    if (stat(a, &sa) != 0 || stat(b, &sb) != 0) return false;
+    if (sa.st_size != sb.st_size) return false;
+
+    FILE *fa = fopen(a, "rb");
+    if (!fa) return false;
+    FILE *fb = fopen(b, "rb");
+    if (!fb) { fclose(fa); return false; }
+
+    bool same = true;
+    unsigned char ba[4096], bb[4096];
+    for (;;) {
+        size_t na = fread(ba, 1, sizeof(ba), fa);
+        size_t nb = fread(bb, 1, sizeof(bb), fb);
+        if (na != nb || memcmp(ba, bb, na) != 0) { same = false; break; }
+        if (na == 0) break;
+    }
+    fclose(fa);
+    fclose(fb);
+
+    return same;
+}
+
+// Parcourt l'arbre du romfs et rend true des qu'un fichier de la SD differe de celui
+// embarque. Un fichier ABSENT de la SD ne compte pas comme perime : le mod n'est peut-etre
+// simplement pas installe, et c'est nextendo_ssbu_is_installed qui tranche cela.
+static bool treeDiffersRomfs(const char *srcDir, const char *dstDir) {
+    DIR *d = opendir(srcDir);
+    if (!d) return false;
+    struct dirent *e;
+    bool differs = false;
+    while (!differs && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char sp[FS_MAX_PATH], dp[FS_MAX_PATH];
+        snprintf(sp, sizeof(sp), "%s/%s", srcDir, e->d_name);
+        snprintf(dp, sizeof(dp), "%s/%s", dstDir, e->d_name);
+        struct stat st;
+        if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode)) {
+            differs = treeDiffersRomfs(sp, dp);
+        } else {
+            struct stat sd_;
+            if (stat(dp, &sd_) == 0 && !sameFileContent(sp, dp)) differs = true;
+        }
+    }
+    closedir(d);
+
+    return differs;
+}
+
+// nextendo_ssbu_needs_update : le mod est installe ET differe de celui embarque.
+//
+// Rend false quand le mod n'est PAS installe : proposer de "mettre a jour" ce que le joueur
+// n'a jamais voulu serait une invitation deguisee a l'installer, et il a deja un bouton
+// pour ca.
+bool nextendo_ssbu_needs_update(void) {
+    if (!nextendo_ssbu_is_installed()) return false;
+
+    return treeDiffersRomfs("romfs:/ssbu_quickplay", "sdmc:");
+}
+
 bool nextendo_ssbu_install(void) {
     bool ok = copyTreeRomfs("romfs:/ssbu_quickplay", "sdmc:");
     if (ok) fsdevCommitDevice("sdmc");

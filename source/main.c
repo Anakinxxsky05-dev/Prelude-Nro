@@ -34,11 +34,15 @@
 #include "ui_theme.h"
 #include "lang.h"
 
+// Destination de l'installation BCAT en cours : false = Splatoon 2, true = SMB35.
+static bool g_bcatSmb35 = false;
+
 enum {
     SCREEN_PICKER, SCREEN_S2_INFO, SCREEN_S2_PROGRESS, SCREEN_S2_RESULT,
     SCREEN_UPD_CONFIRM, SCREEN_UPD_PROGRESS, SCREEN_UPD_RESULT,
     SCREEN_FLAG_MENU, SCREEN_FLAG_PROGRESS, SCREEN_FLAG_RESULT,
     SCREEN_BACKUP_ASK, SCREEN_USEBAK_ASK,
+    SCREEN_MODS_ASK,
     // Smash et Langue ne sont plus des ecrans : leur contenu vit dans le
     // panneau du rail. Ne restent modaux que confirmation / progression /
     // resultat, et la liste de 110 pays, trop longue pour un panneau.
@@ -134,6 +138,10 @@ static void updateProgress(nextendo_update_phase phase, long done, long total) {
 static struct {
     NextendoUpdate  upd;
     int             mode;
+    // Diagnostic des mods, calcule dans le meme fil que la verification de mise a jour :
+    // il lit quelques megaoctets sur la SD et n'a rien a faire dans la boucle d'affichage.
+    bool            modsOld;      // le mod SSBU installe differe de celui embarque
+    char            flagOld[3];   // pays dont le drapeau n'a pas le patch des deux versions
     volatile bool   done;
 } s_boot;
 
@@ -158,6 +166,13 @@ static void bootWorker(void *arg) {
                           : "15a dns warmup: accounts.nintendo.com FAIL");
     }
     socketExit();
+
+    // Les mods ne se mettent PAS a jour en meme temps que Prelude : ils vivent sur la SD et
+    // y restent tels quels. Sans cette verification, le joueur met a jour Prelude, croit
+    // etre a jour, et garde l'ancien mod — ce qui est arrive tout l'ete.
+    s_boot.modsOld = nextendo_ssbu_needs_update();
+    s_boot.flagOld[0] = '\0';
+    flag_needs_update(s_boot.flagOld);
 
     s_boot.upd  = u;
     __asm__ __volatile__("dmb ish" ::: "memory");  // upd visible AVANT done
@@ -273,7 +288,17 @@ int main(int argc, char **argv) {
         // apparait de lui-meme, sans que l'utilisateur ait a toucher quoi que ce soit.
         // One-shot (bootPublished) : une MAJ reussie remet upd.available a 0 et il ne
         // faut pas que la copie ressuscite le bandeau a la frame suivante.
-        if (!bootPublished && s_boot.done) { upd = s_boot.upd; bootPublished = true; }
+        if (!bootPublished && s_boot.done) {
+            upd = s_boot.upd;
+            bootPublished = true;
+
+            // On ne propose RIEN tant que Prelude lui-meme n'est pas a jour : lui demander
+            // de rafraichir ses mods pour ensuite lui dire de mettre a jour Prelude — qui
+            // reinstallera les mods — serait lui faire faire le travail deux fois.
+            if (!upd.available && screen == SCREEN_PICKER
+                && (s_boot.modsOld || s_boot.flagOld[0]))
+                screen = SCREEN_MODS_ASK;
+        }
         padUpdate(&pad);
         u64 k = padGetButtonsDown(&pad);
         // Une seule fois : prouve que la boucle tourne ET que l'entree remonte (si A ne fait rien
@@ -368,7 +393,12 @@ int main(int argc, char **argv) {
                                 snprintf(status, sizeof(status), "%s", lang_str(STR_S3_DONE));
                             }
                             break;
-                        case RAIL_S2:   screen = SCREEN_S2_INFO;   break;
+                        case RAIL_S2:   g_bcatSmb35 = false; screen = SCREEN_S2_INFO; break;
+                        case RAIL_SMB35:
+                            // Pas d'ecran d'information intermediaire : il n'y a rien a
+                            // choisir ni a expliquer, contrairement a Splatoon 2 ou le
+                            // joueur voit d'abord ce qui va etre installe.
+                            g_bcatSmb35 = true; screen = SCREEN_S2_PROGRESS; break;
                         case RAIL_FLAG: screen = SCREEN_FLAG_MENU; break;
                         case RAIL_LANG:
                             if (paneSel != (int)g_lang) { g_lang = (Lang)paneSel; lang_save(); }
@@ -457,6 +487,29 @@ int main(int argc, char **argv) {
                 }
             }
 
+        } else if (screen == SCREEN_MODS_ASK) {
+            if (k & HidNpadButton_A) {
+                int fait = 0;
+                if (s_boot.modsOld && nextendo_ssbu_install()) fait++;
+                if (s_boot.flagOld[0] && flag_install(s_boot.flagOld) >= 0) fait++;
+                snprintf(status, sizeof(status), "%s",
+                         lang_str(fait ? STR_MODS_UPDATED : STR_MODS_FAILED));
+                // Quoi qu'il arrive on ne redemande pas dans cette session : une question
+                // qui revient a chaque image est une question qu'on finit par accepter sans
+                // la lire.
+                s_boot.modsOld = false;
+                s_boot.flagOld[0] = '\0';
+                screen = SCREEN_PICKER;
+            } else if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
+                s_boot.modsOld = false;
+                s_boot.flagOld[0] = '\0';
+                screen = SCREEN_PICKER;
+            }
+            if (screen == SCREEN_MODS_ASK)
+                ui_draw_question(lang_str(STR_MODS_TITLE),
+                                 lang_str(STR_MODS_BODY1),
+                                 lang_str(STR_MODS_BODY2));
+
         } else if (screen == SCREEN_BACKUP_ASK) {
             if (k & HidNpadButton_A) {
                 int nb = nextendo_hosts_backup_create();
@@ -507,22 +560,27 @@ int main(int argc, char **argv) {
             if (screen == SCREEN_UPD_CONFIRM) ui_draw_upd_confirm(upd.maj, upd.min, upd.patch);
 
         } else if (screen == SCREEN_S2_PROGRESS) {
-            ui_draw_progress(lang_str(STR_STATUS_DOWNLOAD_SCHEDULE));
+            ui_draw_progress(lang_str(g_bcatSmb35 ? STR_STATUS_DOWNLOAD_SMB35 : STR_STATUS_DOWNLOAD_SCHEDULE));
             svcSleepThread(150000000ULL);
             socketInitializeDefault();
             Result sslrc = sslInitialize(4);
-            nextendo_bcat_result res = R_SUCCEEDED(sslrc) ? nextendo_bcat_install_s2() : NB_NET_FAIL;
+            // Meme ecran de progression et meme ecran de resultat pour les deux : seul
+            // l'installateur change. Dupliquer les ecrans pour une ligne de difference
+            // laisserait deux chemins a maintenir en parallele.
+            nextendo_bcat_result res = NB_NET_FAIL;
+            if (R_SUCCEEDED(sslrc))
+                res = g_bcatSmb35 ? nextendo_bcat_install_smb35() : nextendo_bcat_install_s2();
             if (R_SUCCEEDED(sslrc)) sslExit();
             socketExit();
             rOk = (res == NB_OK);
             switch (res) {
                 case NB_OK:
-                    snprintf(rTitle, sizeof(rTitle), "%s", lang_str(STR_STATUS_SCHEDULE_OK));
-                    snprintf(rMsg, sizeof(rMsg), "%s", lang_str(STR_STATUS_SCHEDULE_OK_DESC));
+                    snprintf(rTitle, sizeof(rTitle), "%s", lang_str(g_bcatSmb35 ? STR_STATUS_SMB35_OK : STR_STATUS_SCHEDULE_OK));
+                    snprintf(rMsg, sizeof(rMsg), "%s", lang_str(g_bcatSmb35 ? STR_STATUS_SMB35_OK_DESC : STR_STATUS_SCHEDULE_OK_DESC));
                     break;
                 case NB_NO_SCHEDULE:
-                    snprintf(rTitle, sizeof(rTitle), "%s", lang_str(STR_STATUS_NO_SCHEDULE));
-                    snprintf(rMsg, sizeof(rMsg), "%s", lang_str(STR_STATUS_NO_SCHEDULE_DESC));
+                    snprintf(rTitle, sizeof(rTitle), "%s", lang_str(g_bcatSmb35 ? STR_STATUS_NO_EVENT : STR_STATUS_NO_SCHEDULE));
+                    snprintf(rMsg, sizeof(rMsg), "%s", lang_str(g_bcatSmb35 ? STR_STATUS_NO_EVENT_DESC : STR_STATUS_NO_SCHEDULE_DESC));
                     break;
                 case NB_MOUNT_FAIL:
                     snprintf(rTitle, sizeof(rTitle), "%s", lang_str(STR_STATUS_MOUNT_FAIL));

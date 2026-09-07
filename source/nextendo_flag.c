@@ -292,6 +292,53 @@ static bool flag_build_ips(const char *code, unsigned char out[FLAG_IPS_LEN]) {
     return true;
 }
 
+
+// flag_needs_update : un drapeau est pose, mais il lui manque le patch d'une version du jeu.
+//
+// Concretement : celui qui a installe son pays avant le 2026-09-07 n'a que le fichier de la
+// 3.0.5 dans son dossier. Le jour ou il met a jour Mario Kart en 4.0.0, son drapeau cesse
+// simplement de s'appliquer — Atmosphere ne trouve pas de patch au nom du nouveau build id
+// — et RIEN ne le lui dit. Le jeu se lance, la course part, et le pays affiche est celui de
+// la console.
+//
+// On ne regarde donc pas la version installee du jeu, qui ne nous regarde pas : on verifie
+// que le dossier contient les DEUX fichiers. Rend le code du pays trouve, pour que l'appelant
+// puisse le reinstaller sans redemander au joueur ce qu'il avait choisi.
+bool flag_needs_update(char out_code[3]) {
+    if (out_code) out_code[0] = '\0';
+
+    DIR *d = opendir(EXEFS_PATCHES_DIR);
+    if (!d) return false;
+
+    const size_t pfxLen = strlen(FLAG_FOLDER_PREFIX);
+    struct dirent *e;
+    bool needs = false;
+    while (!needs && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (strlen(e->d_name) != pfxLen + 2) continue;
+        if (strncmp(e->d_name, FLAG_FOLDER_PREFIX, pfxLen) != 0) continue;
+
+        char p305[FS_MAX_PATH], p400[FS_MAX_PATH];
+        snprintf(p305, sizeof(p305), "%s/%s/" BUILD_ID ".ips", EXEFS_PATCHES_DIR, e->d_name);
+        snprintf(p400, sizeof(p400), "%s/%s/" BUILD_ID_400 ".ips", EXEFS_PATCHES_DIR, e->d_name);
+
+        struct stat st;
+        bool has305 = (stat(p305, &st) == 0);
+        bool has400 = (stat(p400, &st) == 0);
+        if (has305 && !has400) {
+            needs = true;
+            if (out_code) {
+                out_code[0] = e->d_name[pfxLen];
+                out_code[1] = e->d_name[pfxLen + 1];
+                out_code[2] = '\0';
+            }
+        }
+    }
+    closedir(d);
+
+    return needs;
+}
+
 int flag_install(const char *code) {
     unsigned char ips[FLAG_IPS_LEN];
     if (!flag_build_ips(code, ips)) return -1;
