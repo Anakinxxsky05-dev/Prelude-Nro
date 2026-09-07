@@ -505,7 +505,27 @@
 //           BCAT que Splatoon 2 (/api/bcat/<titleId>), avec une destination differente : la
 //           racine du romfs du jeu en LayeredFS. Nouvelle entree dans le rail.
 
-#define NEXTENDO_BUILD 63
+// build 64 : v3.4.2. TROIS extensions du mod SSBU passent a leur version 13.0.5.
+//           Trouve en verifiant, apres coup, les depots amont des cinq extensions que
+//           Prelude embarque et qui ne viennent PAS de l'archive du mod :
+//
+//             libarcropolis.nro        v4.0.9  "Support for update 13.0.5"
+//             libsmashline_plugin.nro  v1.6.7  "This release ONLY runs on SSBU 13.0.5"
+//             libssbu_pia_manager.nro  v1.3.0  "updated to support SSBU version 13.0.5"
+//
+//           La v3.4.1, publiee une heure plus tot, embarquait encore les versions d'aout —
+//           alors meme que l'emulateur venait d'imposer la 13.0.5 a tout le monde. Le mod
+//           aurait ete casse pour ceux qui l'utilisent.
+//
+//           ⚠️ DEUX des trois ont change de contenu SANS changer de taille (122880 et 303104
+//           octets a l'identique). C'est la troisieme fois en deux jours que ce piege se
+//           presente : sur ces fichiers, comparer les tailles ne prouve RIEN.
+//
+//           Les cinq extensions viennent chacune de son propre depot ; seules skyline et
+//           ssbusync sont a prendre dans l'archive du mod, qui l'indique explicitement.
+//           imgui-smash reste a sa v1.0.0 de mars, qui n'a pas de version liee au jeu.
+
+#define NEXTENDO_BUILD 64
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
