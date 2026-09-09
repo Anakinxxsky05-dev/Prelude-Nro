@@ -166,6 +166,12 @@ typedef enum {
     STR_RAIL_S3,                      // "Splatoon 3"  entree du rail
     STR_RAIL_SMB35,                   // "Mario 35"    entree du rail
     STR_DESC_SMB35,                   // description du panneau Mario 35
+    STR_SMB35SP,                      // "Special Battle" ligne du panneau Mario 35
+    STR_SMB35SP_ON,                   // description quand le mod est pose
+    STR_SMB35SP_OFF,                  // description quand il ne l'est pas
+    STR_SMB35SP_WARN,                 // "Replaces the normal 35-player battle"
+    STR_SMB35SP_DONE,                 // "Special Battle installed"
+    STR_SMB35SP_GONE,                 // "Special Battle removed"
     STR_STATUS_DOWNLOAD_SMB35,        // pendant le telechargement
     STR_STATUS_SMB35_OK,              // titre du resultat
     STR_STATUS_SMB35_OK_DESC,         // detail du resultat

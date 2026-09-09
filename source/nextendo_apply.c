@@ -842,6 +842,8 @@ bool nextendo_apply_nintendo(void) {
     }
     nextendo_trace("24 removeTreeRomfs ok");
     removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:"); // SSBU online-deluxe mod
+    removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:"); // SMB35 batailles speciales
+    nextendo_trace("24d smb35_spbattle retire");
     nextendo_trace("24c ssbu_quickplay retire");
 
     // TELEMETRIE. L'ancien code posait enable_dns_mitm=0, ce qui desactivait du meme coup le
@@ -1073,6 +1075,46 @@ bool nextendo_ssbu_install(void) {
 
 void nextendo_ssbu_remove(void) {
     removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:");
+    fsdevCommitDevice("sdmc");
+}
+
+// ------------------------------------------------------------------
+//  Batailles Speciales de Super Mario Bros. 35 — install / remove / detect.
+//  Le mod vit dans romfs:/smb35_spbattle/ et se copie dans sdmc:.
+//  Optionnel, active au bouton : voir l'avertissement dans le .h — il REMPLACE
+//  la bataille normale, il ne s'y ajoute pas.
+//
+//  La sentinelle est le fichier de donnees et non le correctif .ips : le correctif
+//  seul ne produit rien (le jeu bascule en mode 4 et ne trouve aucun evenement),
+//  alors que le fichier de donnees est ce qui rend le mod visible a l'ecran. Si un
+//  jour l'un des deux manque, mieux vaut que ce soit le correctif qui reste orphelin
+//  qu'un fichier de donnees seul declare « installe ».
+// ------------------------------------------------------------------
+
+#define SMB35SP_SENTINEL \
+    "sdmc:/atmosphere/contents/0100277011F1A000/romfs/Dat/sp_battle.dat"
+
+bool nextendo_smb35sp_is_installed(void) {
+    struct stat st;
+    return stat(SMB35SP_SENTINEL, &st) == 0;
+}
+
+// Meme regle que pour le mod SSBU : on ne propose de « mettre a jour » que ce qui est
+// deja pose. Sinon le bouton deviendrait une invitation deguisee a l'installer, alors
+// que ce mod-la change ce que fait le jeu en ligne.
+bool nextendo_smb35sp_needs_update(void) {
+    if (!nextendo_smb35sp_is_installed()) return false;
+    return treeDiffersRomfs("romfs:/smb35_spbattle", "sdmc:");
+}
+
+bool nextendo_smb35sp_install(void) {
+    bool ok = copyTreeRomfs("romfs:/smb35_spbattle", "sdmc:");
+    if (ok) fsdevCommitDevice("sdmc");
+    return ok;
+}
+
+void nextendo_smb35sp_remove(void) {
+    removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:");
     fsdevCommitDevice("sdmc");
 }
 

@@ -345,7 +345,7 @@ int ui_pane_rows(int railSel, bool ssbuInstalled) {
         // pas dessine : la navigation fait paneSel % rows, et un zero serait une
         // division par zero — un plantage, pas une section vide.
         case RAIL_S3:   return 1;
-        case RAIL_SMB35: return 1;
+        case RAIL_SMB35: return 2;   // BCAT + batailles speciales
         case RAIL_LANG: return 4;                        // EN / ES / PT / FR
         default:        return 1;                        // S2, drapeau : une action
     }
@@ -374,6 +374,7 @@ static void drawRail(u32 *b, u32 st, int railSel, bool railFocused) {
 void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
                     const char *status, int updMaj, int updMin, int updPatch,
                     const char *flagCode, bool ssbuInstalled, bool ssbuOcDisabled,
+                    bool smb35spInstalled,
                     const NextendoS3Status *s3) {
     u32 st;
     u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
@@ -474,6 +475,21 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_S2), lang_str(STR_DESC_S2));
     } else if (railSel == RAIL_SMB35) {
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_SMB35), lang_str(STR_DESC_SMB35));
+        // Seconde ligne : les batailles speciales. L'avertissement est SOUS le bouton et
+        // non dans une confirmation : ce mod ne casse rien qu'un second appui ne defasse,
+        // mais il change ce que fait « bataille » dans le menu du jeu, et quelqu'un qui
+        // l'active sans le savoir chercherait la panne du mauvais cote.
+        {
+            int rowY = y;
+            y = chromeRow(b, st, x, y, w, FOC(1), lang_str(STR_SMB35SP),
+                          lang_str(smb35spInstalled ? STR_SMB35SP_ON : STR_SMB35SP_OFF));
+            chromeBadge(b, st, x, rowY, w,
+                        lang_str(smb35spInstalled ? STR_SSBU_INSTALLED : STR_SSBU_NOT_INSTALLED),
+                        smb35spInstalled ? theme_ok() : theme_sep(),
+                        smb35spInstalled ? COL(0xFF,0xFF,0xFF) : theme_text());
+            drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, packColor(theme_warn()), lang_str(STR_SMB35SP_WARN));
+            y += FS_CAP + SP_SM;
+        }
     } else if (railSel == RAIL_FLAG) {
         int rowY = y;
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_FLAG), lang_str(STR_DESC_FLAG));
