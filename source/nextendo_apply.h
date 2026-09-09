@@ -58,6 +58,23 @@ bool nextendo_ssbu_install(void);
 bool nextendo_ssbu_needs_update(void);
 void nextendo_ssbu_remove(void);
 
+// --- Batailles Speciales de Super Mario Bros. 35 — mod OPTIONNEL. ---
+// Vit dans romfs:/smb35_spbattle/ et se copie dans sdmc:, comme le mod SSBU.
+//
+// ⚠️ POURQUOI C'EST OPTIONNEL ET NON POSE PAR DEFAUT : le correctif exefs ne s'ajoute
+// pas au jeu, il le REMPLACE. Une seule instruction est modifiee, a l'adresse plate
+// 0x320, sur la branche qui prepare la bataille NORMALE (game_mode := 1 devient 4).
+// Mesure le 2026-09-08 : cette fonction n'a qu'UN appelant, 0x9EA9C, et il est sur la
+// branche « type d'entree == 0 ». Le joueur qui pose ce correctif ne gagne donc pas un
+// mode de plus : il perd la bataille a 35 ordinaire, qui devient une bataille speciale.
+// C'est pour ca que ffsaga publie « 1a » (sans) et « 1c » (avec) comme deux mods qu'on
+// n'installe jamais ensemble, et c'est pour ca que ceci a un bouton.
+bool nextendo_smb35sp_is_installed(void);
+bool nextendo_smb35sp_install(void);
+// true si le mod est pose mais differe de celui qu'embarque CE Prelude.
+bool nextendo_smb35sp_needs_update(void);
+void nextendo_smb35sp_remove(void);
+
 // Overclock EMBARQUE du mod (plugin libnx_over.nro + sysmodule 00FF0000A11CE0FF).
 // A desactiver quand le joueur utilise deja Horizon OC / sys-clk : les deux pilotent
 // les memes rails PCV et la console gele au lancement de Smash. Reversible : la

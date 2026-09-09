@@ -33,6 +33,7 @@ void ui_exit(void);
 void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
                     const char *status, int updMaj, int updMin, int updPatch,
                     const char *flagCode, bool ssbuInstalled, bool ssbuOcDisabled,
+                    bool smb35spInstalled,
                     const NextendoS3Status *s3);
 
 // Nombre de lignes du panneau d'une section — main.c borne le focus avec ca.

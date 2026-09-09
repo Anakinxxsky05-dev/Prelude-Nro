@@ -253,6 +253,7 @@ int main(int argc, char **argv) {
 
     // SSBU mod state
     bool ssbuInstalled = nextendo_ssbu_is_installed();
+    bool smb35spInstalled = nextendo_smb35sp_is_installed();
     // Overclock embarque du mod : lu depuis la SD (presence de boot2.flag), pas
     // suppose — le joueur a pu le couper a un lancement precedent de Prelude.
     bool ssbuOcDisabled = nextendo_ssbu_oc_is_disabled();
@@ -395,10 +396,27 @@ int main(int argc, char **argv) {
                             break;
                         case RAIL_S2:   g_bcatSmb35 = false; screen = SCREEN_S2_INFO; break;
                         case RAIL_SMB35:
-                            // Pas d'ecran d'information intermediaire : il n'y a rien a
-                            // choisir ni a expliquer, contrairement a Splatoon 2 ou le
-                            // joueur voit d'abord ce qui va etre installe.
-                            g_bcatSmb35 = true; screen = SCREEN_S2_PROGRESS; break;
+                            if (paneSel == 0) {
+                                // Pas d'ecran d'information intermediaire : il n'y a rien a
+                                // choisir ni a expliquer, contrairement a Splatoon 2 ou le
+                                // joueur voit d'abord ce qui va etre installe.
+                                g_bcatSmb35 = true; screen = SCREEN_S2_PROGRESS;
+                            } else {
+                                // Batailles speciales : bascule franche, sans confirmation. Un second
+                                // appui defait exactement ce que le premier a pose, et le panneau dit
+                                // deja ce que ce mod REMPLACE.
+                                if (smb35spInstalled) {
+                                    nextendo_smb35sp_remove();
+                                    smb35spInstalled = false;
+                                    snprintf(status, sizeof(status), "%s", lang_str(STR_SMB35SP_GONE));
+                                } else {
+                                    smb35spInstalled = nextendo_smb35sp_install();
+                                    snprintf(status, sizeof(status), "%s",
+                                             lang_str(smb35spInstalled ? STR_SMB35SP_DONE
+                                                                       : STR_STATUS_SD_ERROR));
+                                }
+                            }
+                            break;
                         case RAIL_FLAG: screen = SCREEN_FLAG_MENU; break;
                         case RAIL_LANG:
                             if (paneSel != (int)g_lang) { g_lang = (Lang)paneSel; lang_save(); }
@@ -443,7 +461,8 @@ int main(int argc, char **argv) {
                                        upd.available ? upd.maj : 0,
                                        upd.available ? upd.min : 0,
                                        upd.available ? upd.patch : 0,
-                                       flagCurrent, ssbuInstalled, ssbuOcDisabled, &s3);
+                                       flagCurrent, ssbuInstalled, ssbuOcDisabled,
+                                       smb35spInstalled, &s3);
                 }
 
                 // Toast du serveur
@@ -469,7 +488,8 @@ int main(int argc, char **argv) {
                                        upd.available ? upd.maj : 0,
                                        upd.available ? upd.min : 0,
                                        upd.available ? upd.patch : 0,
-                                       flagCurrent, ssbuInstalled, ssbuOcDisabled, &s3);
+                                       flagCurrent, ssbuInstalled, ssbuOcDisabled,
+                                       smb35spInstalled, &s3);
                         svcSleepThread(1200000000ULL);
                         audio_exit();
                         nextendo_reboot();
