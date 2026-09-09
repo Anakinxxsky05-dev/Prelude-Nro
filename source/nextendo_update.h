@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — auto-mise a jour (via le serveur Nextendo).
@@ -466,14 +463,86 @@
 //           declenchee par un appui, d'ou « il faut bouger le stick pour qu'il se
 //           rafraichisse »), et barre de boutons corrigee quand le verrou de MAJ est actif
 //           — elle annoncait « A : Ouvrir » alors que seul Y repond.
-#define NEXTENDO_BUILD 61
+// build 62 : v3.4.0. SSBU Online Deluxe passe a la v1.4.1 (publiee le 2026-09-04).
+//           Le mod est EMBARQUE dans le romfs du .nro, pas telecharge : sans republication
+//           les joueurs restaient sur la version d'aout indefiniment, sans rien pour le leur
+//           signaler.
+//
+//           Deux fichiers seulement changent, verifie par empreinte contre l'archive amont :
+//           libssbu_online_deluxe.nro et libssbusync.nro. Les cinq autres que livre l'archive
+//           (exefs.nsp, subsdk9, main.npdm, boot2.flag, libnx_over.nro) sont OCTET POUR OCTET
+//           identiques a ceux deja embarques, donc on n'y touche pas.
+//
+//           ⚠️ Et on ne remplace PAS le dossier entier. Prelude embarque douze fichiers,
+//           l'archive n'en livre que sept : libarcropolis, libnro_hook, libsmashline_plugin,
+//           libimgui_smash et libssbu_pia_manager viennent d'ailleurs (Skyline / ARCropolis).
+//           Deballer l'archive par-dessus les effacerait et le mod ne chargerait plus.
+
+// build 63 : v3.4.1. Deux choses qui vivent sur la CARTE SD et qui, jusqu'ici, ne suivaient
+//           pas Prelude quand il se mettait a jour.
+//
+//           (0) LES MODS PERIMES SE SIGNALENT. Le mod SSBU et le drapeau MK8D sont poses sur
+//           la SD ; republier Prelude avec des versions plus recentes ne les touchait PAS. Le
+//           joueur mettait a jour, se croyait a jour, et gardait l'ancien mod indefiniment —
+//           ce qui est arrive tout l'ete. La verification tourne dans le meme fil que celle
+//           de Prelude lui-meme et, s'il y a lieu, une question A/B est posee au demarrage.
+//
+//           On compare le CONTENU et non la taille : entre la v1.4.0 et la v1.4.1 du mod,
+//           libssbu_online_deluxe.nro et libssbusync.nro ont change en gardant exactement la
+//           meme taille (1433600 et 376832 octets). Une comparaison par taille n'aurait rien
+//           vu et la question ne serait jamais apparue.
+//
+//           Rien n'est propose quand le mod n'est pas installe — "mettre a jour" ce que le
+//           joueur n'a jamais voulu serait une installation deguisee — ni quand Prelude
+//           lui-meme est perime, puisque sa mise a jour reinstallera les mods de toute facon.
+//
+//           Pour le drapeau, ce n'est pas une version qu'on compare mais une ABSENCE : le
+//           dossier doit contenir les patches des DEUX versions de MK8D. Celui qui a installe
+//           son pays avant le 2026-09-07 n'a que celui de la 3.0.5, et le jour ou il passe en
+//           4.0.0 son drapeau cesse simplement de s'appliquer sans que rien ne le dise.
+//
+//           (1) BATAILLE SPECIALE DE SMB35. Installation de l'evenement par le meme canal
+//           BCAT que Splatoon 2 (/api/bcat/<titleId>), avec une destination differente : la
+//           racine du romfs du jeu en LayeredFS. Nouvelle entree dans le rail.
+
+// build 64 : v3.4.2. TROIS extensions du mod SSBU passent a leur version 13.0.5.
+//           Trouve en verifiant, apres coup, les depots amont des cinq extensions que
+//           Prelude embarque et qui ne viennent PAS de l'archive du mod :
+//
+//             libarcropolis.nro        v4.0.9  "Support for update 13.0.5"
+//             libsmashline_plugin.nro  v1.6.7  "This release ONLY runs on SSBU 13.0.5"
+//             libssbu_pia_manager.nro  v1.3.0  "updated to support SSBU version 13.0.5"
+//
+//           La v3.4.1, publiee une heure plus tot, embarquait encore les versions d'aout —
+//           alors meme que l'emulateur venait d'imposer la 13.0.5 a tout le monde. Le mod
+//           aurait ete casse pour ceux qui l'utilisent.
+//
+//           ⚠️ DEUX des trois ont change de contenu SANS changer de taille (122880 et 303104
+//           octets a l'identique). C'est la troisieme fois en deux jours que ce piege se
+//           presente : sur ces fichiers, comparer les tailles ne prouve RIEN.
+//
+//           Les cinq extensions viennent chacune de son propre depot ; seules skyline et
+//           ssbusync sont a prendre dans l'archive du mod, qui l'indique explicitement.
+//           imgui-smash reste a sa v1.0.0 de mars, qui n'a pas de version liee au jeu.
+
+#define NEXTENDO_BUILD 64
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
 // NEXTENDO_BUILD : les tags GitHub sont des semver (v3.2.5), pas des compteurs.
+// Valeurs de repli. Le Makefile les derive d'APP_VERSION et les passe en -D, ce qui rend
+// ces trois lignes inertes lors d'une compilation normale. Elles ne servent qu'a un
+// editeur ou a une compilation hors Makefile — et surtout, elles ne peuvent plus diverger
+// en silence de la version reellement publiee.
+#ifndef NEXTENDO_VERSION_MAJOR
 #define NEXTENDO_VERSION_MAJOR 3
+#endif
+#ifndef NEXTENDO_VERSION_MINOR
 #define NEXTENDO_VERSION_MINOR 3
+#endif
+#ifndef NEXTENDO_VERSION_PATCH
 #define NEXTENDO_VERSION_PATCH 9
+#endif
 
 typedef struct {
     bool available;   // une version semver > NEXTENDO_VERSION_* est dispo

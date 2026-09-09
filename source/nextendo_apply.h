@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — logique systeme (ecrire hosts / editer l'ini / reboot)
@@ -57,6 +54,8 @@ Result nextendo_reboot(void);
 // Install copie romfs:/ssbu_quickplay/ vers sdmc:. Remove fait l'inverse.
 bool nextendo_ssbu_is_installed(void);
 bool nextendo_ssbu_install(void);
+// true si le mod est installe mais differe de celui embarque dans CE Prelude.
+bool nextendo_ssbu_needs_update(void);
 void nextendo_ssbu_remove(void);
 
 // Overclock EMBARQUE du mod (plugin libnx_over.nro + sysmodule 00FF0000A11CE0FF).

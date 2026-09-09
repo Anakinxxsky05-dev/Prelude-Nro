@@ -1,13 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
+//
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Prelude — tables de traductions EN / ES / PT / FR / ZH.
@@ -413,6 +414,28 @@ static const char *s_strings[STR_COUNT][5] = {
                             "MK8D   -   Bandeira do pais",
                             "MK8D   -   Drapeau du pays",
                             "MK8D   -   国家/地区旗帜" },
+    [STR_MODS_TITLE]    = { "Update your installed mods?",
+                            "Actualizar los mods instalados?",
+                            "Atualizar os mods instalados?",
+                            "Mettre a jour les mods installes ?",
+                            "更新已安装的模组？" },
+    [STR_MODS_BODY1]    = { "This Prelude carries newer versions than the ones on your SD card.",
+                            "Este Prelude trae versiones mas nuevas que las de tu tarjeta SD.",
+                            "Este Prelude traz versoes mais novas que as do seu cartao SD.",
+                            "Ce Prelude embarque des versions plus recentes que celles de votre carte SD.",
+                            "此 Prelude 包含比你 SD 卡上更新的版本。" },
+    [STR_MODS_BODY2]    = { "A: update them   B: keep what you have",
+                            "A: actualizarlos   B: dejarlos como estan",
+                            "A: atualizar   B: manter como esta",
+                            "A : mettre a jour   B : garder tel quel",
+                            "A: 更新   B: 保留现有版本" },
+    [STR_MODS_UPDATED]  = { "Mods updated", "Mods actualizados", "Mods atualizados", "Mods mis a jour",
+                            "模组已更新" },
+    [STR_MODS_FAILED]   = { "Could not update the mods",
+                            "No se pudieron actualizar los mods",
+                            "Nao foi possivel atualizar os mods",
+                            "Impossible de mettre a jour les mods",
+                            "无法更新模组" },
     [STR_BACKUP_TITLE]  = { "Back up your current DNS files?",
                             "Copia de seguridad de tus DNS?",
                             "Fazer backup dos seus DNS?",
@@ -519,16 +542,40 @@ static const char *s_strings[STR_COUNT][5] = {
                                           "Impossible d'ecrire sur la carte SD.",
                                           "无法写入 SD 卡。" },
 
-    // --- Nouveau cromo : rail + barre de boutons ---
-    [STR_RAIL_MODE]   = { "Mode",       "Modo",       "Modo",       "Mode",
-                          "模式" },
+    // --- Nouveau cromo : rail + barre de boutons. Volontairement courts —
+    //     une entree de rail ou un libelle de bouton se lit d'un coup d'oeil,
+    //     pas en phrase. ---
+    [STR_RAIL_MODE]   = { "Mode",       "Modo",       "Modo",       "Mode",       "模式" },
     [STR_RAIL_S2]     = { "Splatoon 2", "Splatoon 2", "Splatoon 2", "Splatoon 2", "Splatoon 2" },
-    [STR_RAIL_FLAG]   = { "Country",    "Pais",       "Pais",       "Pays",
-                          "国家" },
+    [STR_RAIL_FLAG]   = { "Country",    "Pais",       "Pais",       "Pays",       "国家" },
     [STR_RAIL_SSBU]   = { "Smash",      "Smash",      "Smash",      "Smash",      "Smash" },
     [STR_RAIL_S3]     = { "Splatoon 3", "Splatoon 3", "Splatoon 3", "Splatoon 3", "Splatoon 3" },
-    [STR_RAIL_LANG]   = { "Language",   "Idioma",     "Idioma",     "Langue",
-                          "语言" },
+    [STR_RAIL_SMB35]  = { "Mario 35",   "Mario 35",   "Mario 35",   "Mario 35",   "Mario 35" },
+    [STR_DESC_SMB35]  = { "Downloads the current Special Battle event and installs it into Super Mario Bros. 35.",
+                          "Descarga la Batalla Especial actual y la instala en Super Mario Bros. 35.",
+                          "Baixa a Batalha Especial atual e instala em Super Mario Bros. 35.",
+                          "Telecharge la Bataille Speciale en cours et l'installe dans Super Mario Bros. 35.",
+                          "下载当前的特殊对战活动并安装到 Super Mario Bros. 35 中。" },
+    [STR_STATUS_DOWNLOAD_SMB35] = { "Downloading and installing event...",
+                          "Descargando e instalando el evento...",
+                          "Baixando e instalando o evento...",
+                          "Telechargement et installation de l'evenement...",
+                          "正在下载并安装活动..." },
+    [STR_STATUS_SMB35_OK] = { "Event installed", "Evento instalado", "Evento instalado", "Evenement installe",
+                          "活动已安装" },
+    [STR_STATUS_SMB35_OK_DESC] = { "Relaunch Super Mario Bros. 35 to apply.",
+                          "Reinicia Super Mario Bros. 35 para aplicarlo.",
+                          "Reinicie Super Mario Bros. 35 para aplicar.",
+                          "Relancez Super Mario Bros. 35 pour appliquer.",
+                          "重启 Super Mario Bros. 35 以应用。" },
+    [STR_STATUS_NO_EVENT] = { "No event", "Sin evento", "Sem evento", "Aucun evenement",
+                          "无活动" },
+    [STR_STATUS_NO_EVENT_DESC] = { "There is no Special Battle published right now.",
+                          "Ahora mismo no hay ninguna Batalla Especial publicada.",
+                          "Nao ha nenhuma Batalha Especial publicada agora.",
+                          "Aucune Bataille Speciale n'est publiee pour le moment.",
+                          "目前没有发布任何特殊对战活动。" },
+    [STR_RAIL_LANG]   = { "Language",   "Idioma",     "Idioma",     "Langue",     "语言" },
 
     [STR_S3_TITLE]    = { "Splatoon 3 patches",
                           "Parches de Splatoon 3",
@@ -564,7 +611,7 @@ static const char *s_strings[STR_COUNT][5] = {
                           "Estas en modo Nintendo: los parches se quitan a proposito.",
                           "Voce esta no modo Nintendo: as correcoes sao removidas de proposito.",
                           "Vous etes en mode Nintendo : les correctifs sont retires expres.",
-                          "你当前在 Nintendo 模式：补丁已被故意移除。" },
+                          "你当前在 Nintendo 模式：补丁已被移除。" },
     [STR_S3_WHERE]    = { "On the card: atmosphere/exefs_patches/s3certbypass",
                           "En la tarjeta: atmosphere/exefs_patches/s3certbypass",
                           "No cartao: atmosphere/exefs_patches/s3certbypass",

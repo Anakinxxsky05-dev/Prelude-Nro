@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 #include <switch.h>
 #include <string.h>
@@ -84,6 +81,7 @@ const FlagEntry g_flags[FLAG_COUNT] = {
 #define EXEFS_PATCHES_DIR "sdmc:/atmosphere/exefs_patches"
 #define FLAG_FOLDER_PREFIX "Nextendo Country "
 #define BUILD_ID "FE941ED5BA14BE5D505698DA1BBF4FE7"
+#define BUILD_ID_400 "2C336A9BCF79C3040CE506CDD391B578"  // MK8D 4.0.0 (voir plus bas)
 // Plus de telechargement : le patch est fabrique localement (voir flag_build_ips).
 // L amont reste alyeri/nextendo-mk8d-country-flags, dont ce code reproduit la sortie
 // a l octet pres pour les 110 pays qu il publie.
@@ -134,6 +132,15 @@ void flag_remove(void) {
             snprintf(ipsPath, sizeof(ipsPath), "%s/%s/" BUILD_ID ".ips",
                      EXEFS_PATCHES_DIR, e->d_name);
             remove(ipsPath);
+
+            // Le patch 4.0.0 vit dans le MEME dossier. L'oublier laisserait un dossier
+            // orphelin que rmdir ne pourrait pas supprimer, et le pays "desinstalle"
+            // continuerait de s'appliquer aux joueurs en 4.0.0 — un retrait qui ne retire
+            // rien est pire qu'un retrait qui echoue bruyamment.
+            char ipsPath400[FS_MAX_PATH];
+            snprintf(ipsPath400, sizeof(ipsPath400), "%s/%s/" BUILD_ID_400 ".ips",
+                     EXEFS_PATCHES_DIR, e->d_name);
+            remove(ipsPath400);
             char dirPath[FS_MAX_PATH];
             snprintf(dirPath, sizeof(dirPath), "%s/%s", EXEFS_PATCHES_DIR, e->d_name);
             rmdir(dirPath);
@@ -202,6 +209,74 @@ static void putMovzImm(unsigned char *p, unsigned int imm16) {
 // flag_build_ips ecrit dans out le patch du pays demande. code doit etre deux lettres
 // majuscules ASCII ; tout le reste est refuse plutot que de produire un patch qui
 // ferait ecrire n'importe quoi dans l'ExeFS du jeu.
+
+// ---------------------------------------------------------------------------------------
+// MK8D 4.0.0 — la mise a jour Switch 2 du 1er septembre 2026.
+//
+// Le build id change avec la version du jeu, donc le patch de la 3.0.5 ne s'applique
+// simplement PAS sur la 4.0.0 : Atmosphere ne regarde que le fichier dont le nom correspond
+// au build installe. Les deux sont donc ecrits COTE A COTE dans le meme dossier, et la
+// console choisit toute seule. Aucune detection de version cote Prelude, rien a deviner.
+//
+// Le patch 4.0.0 n'est pas le meme fichier avec d'autres adresses. Il partage les cinq
+// premiers points d'ecriture de la 3.0.5, puis en ajoute QUATRE, et surtout les cinq
+// ecritures "empaquetees" different sur deux points :
+//
+//   3.0.5 : registre w8, immediat a | (z << 8)
+//   4.0.0 : registre w0, immediat (a << 8) | z
+//
+// Les deux ont ete trouves en comparant les fichiers amont, pas deduits — se tromper de
+// registre ou d'ordre produit un patch qui s'installe sans broncher et ne fait rien.
+//
+// VERIFIE : cette table regenere les 110 pays du depot amont
+// (alyeri/nextendo-mk8d-country-flags, dossier Consoles/Atmosphere-4.0.0) OCTET POUR OCTET.
+#define FLAG_IPS_LEN_400 119
+
+#define FLAG400_OFF_A1 10
+#define FLAG400_OFF_Z1 18
+#define FLAG400_OFF_A2 43
+#define FLAG400_OFF_Z2 51
+static const int FLAG400_OFF_PK[5] = { 76, 85, 94, 103, 112 };
+
+static const unsigned char FLAG_IPS_TEMPLATE_400[FLAG_IPS_LEN_400] = {
+    0x50, 0x41, 0x54, 0x43, 0x48, 0x87, 0x0F, 0x78, 0x00, 0x1C, 0xA8, 0x08,
+    0x80, 0x52, 0x68, 0x02, 0x02, 0x39, 0x68, 0x0A, 0x80, 0x52, 0x68, 0x06,
+    0x02, 0x39, 0xE8, 0x03, 0x00, 0x32, 0x68, 0x0E, 0x02, 0x39, 0x03, 0x00,
+    0x00, 0x14, 0x87, 0x10, 0x08, 0x00, 0x1C, 0xA8, 0x08, 0x80, 0x52, 0x68,
+    0x02, 0x02, 0x39, 0x68, 0x0A, 0x80, 0x52, 0x68, 0x06, 0x02, 0x39, 0xE8,
+    0x03, 0x00, 0x32, 0x68, 0x0E, 0x02, 0x39, 0x03, 0x00, 0x00, 0x14, 0x48,
+    0x32, 0xD0, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x84, 0xCA, 0xD0, 0x00,
+    0x04, 0x60, 0xAA, 0x88, 0x52, 0x87, 0x8B, 0x84, 0x00, 0x04, 0x60, 0xAA,
+    0x88, 0x52, 0x87, 0x8B, 0xFC, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x87,
+    0x8E, 0x98, 0x00, 0x04, 0x60, 0xAA, 0x88, 0x52, 0x45, 0x4F, 0x46,
+};
+
+// putMovzImmReg : comme putMovzImm mais le registre de destination est explicite.
+// La 3.0.5 ecrit dans w8 partout ; la 4.0.0 utilise w0 pour ses cinq empaquetees.
+static void putMovzImmReg(unsigned char *p, unsigned int imm16, unsigned int reg) {
+    unsigned int w = 0x52800000u | ((imm16 & 0xFFFFu) << 5) | (reg & 0x1Fu);
+    p[0] = (unsigned char)(w);
+    p[1] = (unsigned char)(w >> 8);
+    p[2] = (unsigned char)(w >> 16);
+    p[3] = (unsigned char)(w >> 24);
+}
+
+static bool flag_build_ips_400(const char *code, unsigned char out[FLAG_IPS_LEN_400]) {
+    if (!code || !code[0] || !code[1] || code[2]) return false;
+    unsigned int a = (unsigned char)code[0];
+    unsigned int z = (unsigned char)code[1];
+    if (a < 'A' || a > 'Z' || z < 'A' || z > 'Z') return false;
+
+    memcpy(out, FLAG_IPS_TEMPLATE_400, FLAG_IPS_LEN_400);
+    putMovzImmReg(out + FLAG400_OFF_A1, a, 8);
+    putMovzImmReg(out + FLAG400_OFF_Z1, z, 8);
+    putMovzImmReg(out + FLAG400_OFF_A2, a, 8);
+    putMovzImmReg(out + FLAG400_OFF_Z2, z, 8);
+    for (int i = 0; i < 5; i++)
+        putMovzImmReg(out + FLAG400_OFF_PK[i], (a << 8) | z, 0);
+    return true;
+}
+
 static bool flag_build_ips(const char *code, unsigned char out[FLAG_IPS_LEN]) {
     if (!code || !code[0] || !code[1] || code[2]) return false;
     unsigned int a = (unsigned char)code[0];
@@ -215,6 +290,53 @@ static bool flag_build_ips(const char *code, unsigned char out[FLAG_IPS_LEN]) {
     putMovzImm(out + FLAG_OFF_Z2, z);
     putMovzImm(out + FLAG_OFF_PK, a | (z << 8));
     return true;
+}
+
+
+// flag_needs_update : un drapeau est pose, mais il lui manque le patch d'une version du jeu.
+//
+// Concretement : celui qui a installe son pays avant le 2026-09-07 n'a que le fichier de la
+// 3.0.5 dans son dossier. Le jour ou il met a jour Mario Kart en 4.0.0, son drapeau cesse
+// simplement de s'appliquer — Atmosphere ne trouve pas de patch au nom du nouveau build id
+// — et RIEN ne le lui dit. Le jeu se lance, la course part, et le pays affiche est celui de
+// la console.
+//
+// On ne regarde donc pas la version installee du jeu, qui ne nous regarde pas : on verifie
+// que le dossier contient les DEUX fichiers. Rend le code du pays trouve, pour que l'appelant
+// puisse le reinstaller sans redemander au joueur ce qu'il avait choisi.
+bool flag_needs_update(char out_code[3]) {
+    if (out_code) out_code[0] = '\0';
+
+    DIR *d = opendir(EXEFS_PATCHES_DIR);
+    if (!d) return false;
+
+    const size_t pfxLen = strlen(FLAG_FOLDER_PREFIX);
+    struct dirent *e;
+    bool needs = false;
+    while (!needs && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        if (strlen(e->d_name) != pfxLen + 2) continue;
+        if (strncmp(e->d_name, FLAG_FOLDER_PREFIX, pfxLen) != 0) continue;
+
+        char p305[FS_MAX_PATH], p400[FS_MAX_PATH];
+        snprintf(p305, sizeof(p305), "%s/%s/" BUILD_ID ".ips", EXEFS_PATCHES_DIR, e->d_name);
+        snprintf(p400, sizeof(p400), "%s/%s/" BUILD_ID_400 ".ips", EXEFS_PATCHES_DIR, e->d_name);
+
+        struct stat st;
+        bool has305 = (stat(p305, &st) == 0);
+        bool has400 = (stat(p400, &st) == 0);
+        if (has305 && !has400) {
+            needs = true;
+            if (out_code) {
+                out_code[0] = e->d_name[pfxLen];
+                out_code[1] = e->d_name[pfxLen + 1];
+                out_code[2] = '\0';
+            }
+        }
+    }
+    closedir(d);
+
+    return needs;
 }
 
 int flag_install(const char *code) {
@@ -248,6 +370,29 @@ int flag_install(const char *code) {
 
     if (!ok) { remove(ipsPath); return -2; }
 
+    // ET LE PATCH DE LA 4.0.0, a cote, dans le meme dossier.
+    //
+    // Atmosphere n'applique que le fichier dont le nom correspond au build id du jeu
+    // installe, donc les deux cohabitent sans se gener et le joueur n'a rien a choisir.
+    // C'est ce qui evite d'avoir a deviner sa version de Mario Kart depuis Prelude — et
+    // celui qui met a jour son jeu n'a pas a repasser par ici.
+    //
+    // Un echec ici n'annule PAS le patch 3.0.5 deja ecrit : mieux vaut une version
+    // couverte que zero. On le signale par le code de retour, l'appelant decide.
+    unsigned char ips400[FLAG_IPS_LEN_400];
+    bool ok400 = false;
+    if (flag_build_ips_400(code, ips400)) {
+        char ipsPath400[FS_MAX_PATH];
+        snprintf(ipsPath400, sizeof(ipsPath400), "%s/" BUILD_ID_400 ".ips", flagDir);
+
+        FILE *f400 = fopen(ipsPath400, "wb");
+        if (f400) {
+            ok400 = (fwrite(ips400, 1, FLAG_IPS_LEN_400, f400) == FLAG_IPS_LEN_400);
+            fclose(f400);
+            if (!ok400) remove(ipsPath400);
+        }
+    }
+
     fsdevCommitDevice("sdmc");
-    return 0;
+    return ok400 ? 0 : 1;
 }

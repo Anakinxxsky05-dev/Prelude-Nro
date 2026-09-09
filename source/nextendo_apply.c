@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — logique systeme.
@@ -171,6 +168,31 @@ char *nextendo_hosts_build(const char *ip) {
     // *.op2.nintendo.net RETIRÉ (v3.0.2): trop large — attrapait des sous-domaines
     // op2 non gérés par le VPS (authorization server, entitlement check) → 404 → erreurs
     // 2219-4001 (ACNH). On garde capi.lp1.op2.nintendo.net (ligne au-dessus) qui suffit.
+
+    // BCAT — la livraison de contenu en tache de fond. Diagnostic de Kazu, 2026-08-24.
+    //
+    // Quand le blanket *.nintendo.net a ete resserre sur *.srv.nintendo.net plus une liste
+    // nommee, *.cdn.nintendo.net est tombe de la liste — et BCAT vit la. Une console
+    // resolvait donc bcat-list-lp1.cdn.nintendo.net vers le VRAI CDN de Nintendo et lui
+    // presentait un DenebEdgeToken frappe par nous, que Nintendo refuse evidemment. La
+    // synchronisation echouait et Splatoon 3 le remontait en erreur dure : 2122-2403,
+    // module 122 = bcat.
+    //
+    // On nomme les trois hotes plutot que de restaurer un joker *.cdn.nintendo.net : c'est
+    // le style du reste du fichier, et c'est exactement le genre d'elargissement qui a
+    // coute les 2219-4001 d'ACNH deux lignes plus haut.
+    //
+    // NOTRE conntest nginx repond deja sur ces noms : il rend 304 Not Modified sur une
+    // requete conditionnelle, ce que le vrai BCAT rend quand le cache de la console est a
+    // jour. La console lit « rien a synchroniser » et se sert de son cache local.
+    //
+    // ⚠️ CELA N'ENVOIE AUCUNE DONNEE. Le 304 dit « ton cache est bon », pas « voici les
+    // donnees ». Un joueur sans paquet de festival dans sa sauvegarde BCAT n'en recevra
+    // toujours pas : cela cesse simplement d'echouer. Servir les vraies donnees est une
+    // autre fonctionnalite.
+    snprintf(line, sizeof(line), "%s bcat-list-lp1.cdn.nintendo.net\n", ip);   EMIT_H(line);
+    snprintf(line, sizeof(line), "%s bcat-data-lp1.cdn.nintendo.net\n", ip);   EMIT_H(line);
+    snprintf(line, sizeof(line), "%s bcat-topics-lp1.cdn.nintendo.net\n", ip); EMIT_H(line);
 
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
@@ -965,6 +987,82 @@ Result nextendo_reboot(void) {
 bool nextendo_ssbu_is_installed(void) {
     struct stat st;
     return stat(SSBU_MOD_SENTINEL, &st) == 0;
+}
+
+
+// --- Le mod installe est-il celui que porte CE Prelude ? -------------------------------
+//
+// Prelude embarque le mod SSBU dans son romfs. Quand on republie Prelude avec une version
+// plus recente du mod, la copie deja posee sur la SD ne bouge PAS toute seule : le joueur
+// met a jour Prelude, croit etre a jour, et garde l'ancien mod indefiniment. C'est
+// exactement ce qui est arrive entre aout et la v3.4.0.
+//
+// ON COMPARE LE CONTENU, PAS LA TAILLE. Mesure du 2026-09-07 en passant le mod de la v1.4.0
+// a la v1.4.1 : libssbu_online_deluxe.nro et libssbusync.nro ont change de contenu en
+// gardant EXACTEMENT la meme taille, 1433600 et 376832 octets. Une comparaison par taille
+// n'aurait rien vu et le popup ne serait jamais apparu.
+//
+// La taille sert quand meme de test rapide AVANT de lire : elle elimine la plupart des cas
+// sans toucher au contenu, et seuls les fichiers de meme taille sont lus en entier.
+static bool sameFileContent(const char *a, const char *b) {
+    struct stat sa, sb;
+    if (stat(a, &sa) != 0 || stat(b, &sb) != 0) return false;
+    if (sa.st_size != sb.st_size) return false;
+
+    FILE *fa = fopen(a, "rb");
+    if (!fa) return false;
+    FILE *fb = fopen(b, "rb");
+    if (!fb) { fclose(fa); return false; }
+
+    bool same = true;
+    unsigned char ba[4096], bb[4096];
+    for (;;) {
+        size_t na = fread(ba, 1, sizeof(ba), fa);
+        size_t nb = fread(bb, 1, sizeof(bb), fb);
+        if (na != nb || memcmp(ba, bb, na) != 0) { same = false; break; }
+        if (na == 0) break;
+    }
+    fclose(fa);
+    fclose(fb);
+
+    return same;
+}
+
+// Parcourt l'arbre du romfs et rend true des qu'un fichier de la SD differe de celui
+// embarque. Un fichier ABSENT de la SD ne compte pas comme perime : le mod n'est peut-etre
+// simplement pas installe, et c'est nextendo_ssbu_is_installed qui tranche cela.
+static bool treeDiffersRomfs(const char *srcDir, const char *dstDir) {
+    DIR *d = opendir(srcDir);
+    if (!d) return false;
+    struct dirent *e;
+    bool differs = false;
+    while (!differs && (e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char sp[FS_MAX_PATH], dp[FS_MAX_PATH];
+        snprintf(sp, sizeof(sp), "%s/%s", srcDir, e->d_name);
+        snprintf(dp, sizeof(dp), "%s/%s", dstDir, e->d_name);
+        struct stat st;
+        if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode)) {
+            differs = treeDiffersRomfs(sp, dp);
+        } else {
+            struct stat sd_;
+            if (stat(dp, &sd_) == 0 && !sameFileContent(sp, dp)) differs = true;
+        }
+    }
+    closedir(d);
+
+    return differs;
+}
+
+// nextendo_ssbu_needs_update : le mod est installe ET differe de celui embarque.
+//
+// Rend false quand le mod n'est PAS installe : proposer de "mettre a jour" ce que le joueur
+// n'a jamais voulu serait une invitation deguisee a l'installer, et il a deja un bouton
+// pour ca.
+bool nextendo_ssbu_needs_update(void) {
+    if (!nextendo_ssbu_is_installed()) return false;
+
+    return treeDiffersRomfs("romfs:/ssbu_quickplay", "sdmc:");
 }
 
 bool nextendo_ssbu_install(void) {

@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — rendu UI (style Nimbus/Pretendo).
@@ -367,6 +364,7 @@ static const char *railLabel(int i) {
         case RAIL_SSBU: return lang_str(STR_RAIL_SSBU);
         case RAIL_S2:   return lang_str(STR_RAIL_S2);
         case RAIL_S3:   return lang_str(STR_RAIL_S3);
+        case RAIL_SMB35: return lang_str(STR_RAIL_SMB35);
         case RAIL_FLAG: return lang_str(STR_RAIL_FLAG);
         default:        return lang_str(STR_RAIL_LANG);
     }
@@ -384,6 +382,7 @@ int ui_pane_rows(int railSel, bool ssbuInstalled) {
         // pas dessine : la navigation fait paneSel % rows, et un zero serait une
         // division par zero — un plantage, pas une section vide.
         case RAIL_S3:   return 1;
+        case RAIL_SMB35: return 1;
         case RAIL_LANG: return 5;                        // EN / ES / PT / FR / ZH
         default:        return 1;                        // S2, drapeau : une action
     }
@@ -510,6 +509,8 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
 
     } else if (railSel == RAIL_S2) {
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_S2), lang_str(STR_DESC_S2));
+    } else if (railSel == RAIL_SMB35) {
+        y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_SMB35), lang_str(STR_DESC_SMB35));
     } else if (railSel == RAIL_FLAG) {
         int rowY = y;
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_FLAG), lang_str(STR_DESC_FLAG));

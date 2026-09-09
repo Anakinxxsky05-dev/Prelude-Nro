@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — Splatoon 2 schedule installer via LayeredFS.
@@ -47,6 +44,7 @@
 
 #define BCAT_HOST       "nextendo.network"
 #define BCAT_API_PATH   "/api/bcat/%s"
+#define LOG_PATH_SMB35  "sdmc:/nextendo_bcat_smb35.log"
 #define ZIP_TMP         "sdmc:/nextendo_bcat_tmp.zip"
 #define ROMFS_BCAT_BASE "romfs:/bcatdata"
 #define LAYEREDFS_BASE  "sdmc:/atmosphere/contents/%s/romfs"
@@ -325,6 +323,61 @@ static bool copyStatic(const char *titleId, const char *romfsBase) {
         ok = copyTreeSimple(dumSrc, dumDst) && ok;
 
     return ok;
+}
+
+// ------------------------------------------------------------------
+//  Super Mario Bros. 35 — Batailles Speciales.
+//
+//  MEME MECANISME QUE S2, destination differente. Le jeu lit son evenement a
+//  DEUX endroits et fusionne les deux listes :
+//      Contents:/Dat/sp_battle.dat   (son propre romfs — c'est ici qu'on ecrit)
+//      sp_battle_info/master         (le vrai BCAT)
+//  Comme S2, on ne touche pas au save de distribution : on pose le fichier la ou
+//  le jeu ira le chercher dans son romfs, et LayeredFS fait le reste.
+//
+//  Le fichier livre par le jeu est UN SEUL octet nul : le parseur exige '{' en
+//  premiere position et abandonne sinon. Un contenu qu'il ne comprend pas ne
+//  casse donc rien — il n'y a simplement pas d'evenement.
+nextendo_bcat_result nextendo_bcat_install_smb35(void) {
+    g_log = fopen(LOG_PATH_SMB35, "w");
+    logf_("=== Nextendo BCAT install SMB35 ===");
+
+    static const char SMB35_ID[] = "0100277011F1A000";
+    char lower[32];
+    snprintf(lower, sizeof(lower), "%s", SMB35_ID);
+    toLowerInPlace(lower);
+
+    logf_("  GET /api/bcat/%s", lower);
+    int rc = downloadZip(lower);
+    if (rc == 204) {
+        logf_("  204 : aucun evenement publie");
+        if (g_log) { fclose(g_log); g_log = NULL; }
+        return NB_NO_SCHEDULE;
+    }
+    if (rc != 0) {
+        logf_("  ECHEC telechargement (status=%d ssl_rc=0x%x)", rc, (unsigned)g_net_ssl_rc);
+        if (g_log) { fclose(g_log); g_log = NULL; }
+        if (rc == NET_ERR_TIMEOUT)  return NB_NET_TIMEOUT;
+        if (rc == NET_ERR_CONNECT)  return NB_NET_CONNECT;
+        if (rc == BCAT_ERR_WRITE)   return NB_WRITE_FAIL;
+        if (rc > 0)                 return NB_NET_HTTP_ERR;
+        return NB_NET_FAIL;
+    }
+
+    // Destination : la RACINE du romfs, pas un sous-dossier. Le zip porte deja
+    // "Dat/sp_battle.dat", donc extraire a la racine met le fichier au bon endroit.
+    char romfsBase[FS_MAX_PATH];
+    snprintf(romfsBase, sizeof(romfsBase), LAYEREDFS_BASE, SMB35_ID);
+    logf_("  dest: %s", romfsBase);
+
+    bool ok = extractZip(romfsBase);
+    fsdevCommitDevice("sdmc");
+    remove(ZIP_TMP);
+    fsdevCommitDevice("sdmc");
+
+    logf_("=== resultat: %s ===", ok ? "OK" : "ECHEC");
+    if (g_log) { fclose(g_log); g_log = NULL; }
+    return ok ? NB_OK : NB_WRITE_FAIL;
 }
 
 nextendo_bcat_result nextendo_bcat_install_s2(void) {

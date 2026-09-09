@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — MK8D country flag installer.
@@ -40,6 +37,8 @@ void flag_detect_current(char out_code[3]);
 // Requires socketInitializeDefault() + sslInitialize() to have been called.
 // Returns 0 on success, -1 on network error, -2 on write error.
 int flag_install(const char *code);
+// true si un drapeau est pose sans le patch d'une des versions du jeu ; rend son code.
+bool flag_needs_update(char out_code[3]);
 
 // Remove all Nextendo Country flag patches from sdmc:/atmosphere/exefs_patches/.
 void flag_remove(void);

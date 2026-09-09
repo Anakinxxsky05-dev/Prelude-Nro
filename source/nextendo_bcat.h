@@ -1,17 +1,14 @@
 // Prelude — Nintendo Switch homebrew for the Nextendo Network.
 // Copyright (C) 2026 Nextendo Network
 //
-// This program is free software: you can redistribute it and/or modify it under
-// the terms of the GNU Affero General Public License as published by the Free
-// Software Foundation, either version 3 of the License, or (at your option) any
-// later version.
+// Licensed under the PolyForm Shield License 1.0.0.
 //
-// This program is distributed in the hope that it will be useful, but WITHOUT ANY
-// WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-// PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+// You may use, modify and distribute this software for any purpose EXCEPT providing a product
+// that competes with Nextendo Network, or with any product Nextendo Network provides using it.
 //
-// You should have received a copy of the GNU Affero General Public License along
-// with this program. If not, see <https://www.gnu.org/licenses/>.
+// See LICENSE.md for the full terms, or <https://polyformproject.org/licenses/shield/1.0.0>.
+//
+// Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
 //  Nextendo .nro — installation du planning Splatoon 2 via LayeredFS.
@@ -45,6 +42,11 @@ typedef enum {
 // Installe le planning S2 dans le dossier LayeredFS d'Atmosphere.
 // socketInitializeDefault() + sslInitialize() doivent etre actifs avant l'appel.
 nextendo_bcat_result nextendo_bcat_install_s2(void);
+
+// Installe l'evenement Bataille Speciale de Super Mario Bros. 35 dans le dossier
+// LayeredFS d'Atmosphere. Meme canal que S2 (/api/bcat/<titleId>), destination
+// differente : la racine du romfs du jeu.
+nextendo_bcat_result nextendo_bcat_install_smb35(void);
 
 extern Result g_last_rc;
 
