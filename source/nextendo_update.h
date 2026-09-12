@@ -573,7 +573,7 @@
 //           piege se presente sur ce mod ; les six autres fichiers de l'archive sont
 //           octet pour octet identiques a ceux deja embarques.
 
-#define NEXTENDO_BUILD 66
+#define NEXTENDO_BUILD 67
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
