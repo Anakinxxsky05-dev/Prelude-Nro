@@ -11,7 +11,7 @@
 // Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
-//  Prelude — internationalisation (EN / ES / PT).
+//  Prelude — internationalisation (EN / ES / PT / FR / ZH).
 //  Les chaînes sont indexées par StringID. La langue courante
 //  est persistée dans sdmc:/switch/prelude_lang.txt (1 octet).
 // ============================================================
