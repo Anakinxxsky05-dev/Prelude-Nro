@@ -484,7 +484,7 @@ static const char *s_strings[STR_COUNT][5] = {
                             "Instala una bandera de pais para MK8D online. Los demas jugadores la veran.",
                             "Instala uma bandeira para MK8D online. Os outros jogadores vao ve-la.",
                             "Installe un drapeau national pour MK8D en ligne. Les autres joueurs le voient.",
-                            "为 MK8D 联机安装国家/地区旗帜。其他玩家可以看到。" },
+                            "为马车8联机安装国家/地区旗帜,注意游戏没有中国相关旗帜，建议统一选择CH相互标识下吧" },
     [STR_HELP_FLAG]     = { "A: open   < >: change   B: quit",
                             "A: abrir   < >: cambiar   B: salir",
                             "A: abrir   < >: mudar   B: sair",
@@ -494,7 +494,7 @@ static const char *s_strings[STR_COUNT][5] = {
     // --- Flag menu ---
     [STR_FLAG_MENU_TITLE] = { "MK8D Country Flag", "Bandera de pais MK8D",
                               "Bandeira do pais MK8D", "Drapeau du pays MK8D",
-                              "MK8D 国家/地区旗帜" },
+                              "马车8 国家/地区旗帜" },
     [STR_FLAG_NONE]       = { "(none installed)", "(ninguna instalada)",
                               "(nenhuma instalada)", "(aucun installe)",
                               "(未安装)" },
