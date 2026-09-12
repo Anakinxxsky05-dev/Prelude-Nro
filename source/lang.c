@@ -611,7 +611,7 @@ static const char *s_strings[STR_COUNT][5] = {
                           "Estas en modo Nintendo: los parches se quitan a proposito.",
                           "Voce esta no modo Nintendo: as correcoes sao removidas de proposito.",
                           "Vous etes en mode Nintendo : les correctifs sont retires expres.",
-                          "你当前在 Nintendo 模式：补丁已被移除。" },
+                          "你当前在 Nintendo 模式：补丁已被故意移除。" },
     [STR_S3_WHERE]    = { "On the card: atmosphere/exefs_patches/s3certbypass",
                           "En la tarjeta: atmosphere/exefs_patches/s3certbypass",
                           "No cartao: atmosphere/exefs_patches/s3certbypass",
