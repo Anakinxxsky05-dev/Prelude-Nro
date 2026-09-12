@@ -66,17 +66,29 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # NO forzar `dkp-pacman -Syyu`: el refresh de bases toca pkg.devkitpro.org,
+          # que devuelve 403 intermitente desde los runners de GitHub Actions
+          # ("failed retrieving dkp-libs.db"). La imagen devkita64 ya trae
+          # switch-portlibs (freetype, mpg123, ...), asi que `--needed` no descarga
+          # nada si ya estan -> via rapida sin red.
+          if dkp-pacman -S --needed --noconfirm switch-freetype switch-mpg123; then
+            exit 0
+          fi
+          # Via lenta, solo si de verdad faltaba algo: un unico refresh (-Sy) y
+          # reintento. Se evita -Syyu (doble refresh) que era lo que disparaba el 403.
           ok=0
-          for attempt in 1 2 3 4 5; do
-            if dkp-pacman -Syyu --noconfirm; then ok=1; break; fi
-            echo "::warning::dkp-pacman sync failed (attempt ${attempt}); retrying..."
+          for attempt in 1 2 3; do
+            if dkp-pacman -Sy --noconfirm && dkp-pacman -S --needed --noconfirm switch-freetype switch-mpg123; then
+              ok=1
+              break
+            fi
+            echo "::warning::dkp-pacman install failed (attempt ${attempt}); retrying..."
             sleep 10
           done
           if [ "${ok}" -ne 1 ]; then
-            echo "::error::Could not sync devkitPro packages after 5 attempts"
+            echo "::error::Could not install switch-freetype / switch-mpg123 after 3 attempts"
             exit 1
           fi
-          dkp-pacman -S --needed --noconfirm switch-freetype switch-mpg123
 
       - name: Build
         run: make -j"$(nproc)"
