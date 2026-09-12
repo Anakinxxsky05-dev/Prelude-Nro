@@ -36,6 +36,8 @@
 static Framebuffer s_fb;
 static FT_Library  s_ft;
 static FT_Face     s_bold, s_semi, s_reg;     // Poppins Bold / SemiBold / Regular
+static FT_Face     s_cjk_faces[PlSharedFontType_Total]; // CJK fallback (system shared fonts)
+static int         s_cjk_count;                         // number of loaded fallback faces
 static u8         *s_bBuf, *s_sBuf, *s_rBuf;  // buffers TTF (gardés en vie)
 static u8         *s_logo, *s_ninten;         // images RGBA 200x200
 
@@ -123,23 +125,37 @@ static void blitImg(u32 *b, u32 st, int dx, int dy, int dw, int dh, u8 *img) {
 // ---- texte (FreeType, police choisie, blit alpha) ----
 static int measureF(FT_Face fc, int px, const char *s) {
     if (FT_Set_Pixel_Sizes(fc, 0, px)) return 0;
+    for (int fi = 0; fi < s_cjk_count; fi++) FT_Set_Pixel_Sizes(s_cjk_faces[fi], 0, px);
     int w = 0; u32 i = 0, len = strlen(s); uint32_t cp; ssize_t u;
     while (i < len) {
         u = decode_utf8(&cp, (const uint8_t *)&s[i]); if (u <= 0) break; i += u;
-        if (FT_Load_Char(fc, cp, FT_LOAD_DEFAULT)) continue;
-        w += fc->glyph->advance.x >> 6;
+        FT_Face use = fc;
+        if (FT_Get_Char_Index(fc, cp) == 0) {
+            for (int fi = 0; fi < s_cjk_count; fi++) {
+                if (FT_Get_Char_Index(s_cjk_faces[fi], cp) != 0) { use = s_cjk_faces[fi]; break; }
+            }
+        }
+        if (FT_Load_Char(use, cp, FT_LOAD_DEFAULT)) continue;
+        w += use->glyph->advance.x >> 6;
     }
     return w;
 }
 static void drawF(u32 *b, u32 st, FT_Face fc, int x, int y, int px, u32 col, const char *s) {
     u8 cr = col & 0xFF, cg = (col >> 8) & 0xFF, cb = (col >> 16) & 0xFF;
     if (FT_Set_Pixel_Sizes(fc, 0, px)) return;
+    for (int fi = 0; fi < s_cjk_count; fi++) FT_Set_Pixel_Sizes(s_cjk_faces[fi], 0, px);
     int penX = x;
     u32 i = 0, len = strlen(s); uint32_t cp; ssize_t u;
     while (i < len) {
         u = decode_utf8(&cp, (const uint8_t *)&s[i]); if (u <= 0) break; i += u;
-        if (FT_Load_Char(fc, cp, FT_LOAD_RENDER)) continue;
-        FT_GlyphSlot g = fc->glyph; FT_Bitmap *bm = &g->bitmap;
+        FT_Face use = fc;
+        if (FT_Get_Char_Index(fc, cp) == 0) {
+            for (int fi = 0; fi < s_cjk_count; fi++) {
+                if (FT_Get_Char_Index(s_cjk_faces[fi], cp) != 0) { use = s_cjk_faces[fi]; break; }
+            }
+        }
+        if (FT_Load_Char(use, cp, FT_LOAD_RENDER)) continue;
+        FT_GlyphSlot g = use->glyph; FT_Bitmap *bm = &g->bitmap;
         if (bm->pixel_mode == FT_PIXEL_MODE_GRAY && bm->buffer) {
             int gx = penX + g->bitmap_left, gy = y - g->bitmap_top;
             u8 *src = bm->buffer;
@@ -303,6 +319,25 @@ bool ui_init(void) {
     if (!loadFace("romfs:/Poppins-Bold.ttf", &s_bold, &s_bBuf)) return false;
     if (!loadFace("romfs:/Poppins-SemiBold.ttf", &s_semi, &s_sBuf)) s_semi = s_bold;
     if (!loadFace("romfs:/Poppins-Regular.ttf", &s_reg, &s_rBuf)) s_reg = s_bold;
+
+    // CJK fallback: load ALL system shared fonts for full glyph coverage.
+    // Switch splits CJK across multiple font files (Standard, ChineseSimplified,
+    // ExtendedChineseSimplified, etc.). We load them all as fallback candidates.
+    s_cjk_count = 0;
+    if (R_SUCCEEDED(plInitialize(PlServiceType_User))) {
+        PlFontData fonts[PlSharedFontType_Total];
+        s32 total = 0;
+        if (R_SUCCEEDED(plGetSharedFont(SetLanguage_ZHCN, fonts, PlSharedFontType_Total, &total))) {
+            for (int i = 0; i < total && s_cjk_count < PlSharedFontType_Total; i++) {
+                FT_Face face = NULL;
+                if (FT_New_Memory_Face(s_ft, (const FT_Byte *)fonts[i].address, fonts[i].size, 0, &face) == 0) {
+                    s_cjk_faces[s_cjk_count++] = face;
+                }
+            }
+        }
+        // Don't plExit — the shared memory must stay mapped while we use the fonts.
+    }
+
     s_logo   = loadImg("romfs:/logo.rgba");
     s_ninten = loadImg("romfs:/nintendo.rgba");
     framebufferCreate(&s_fb, nwindowGetDefault(), FB_W, FB_H, PIXEL_FORMAT_RGBA_8888, 2);
@@ -314,7 +349,9 @@ void ui_exit(void) {
     framebufferClose(&s_fb);
     if (s_logo) free(s_logo);
     if (s_ninten) free(s_ninten);
+    for (int i = 0; i < s_cjk_count; i++) FT_Done_Face(s_cjk_faces[i]);
     FT_Done_FreeType(s_ft);
+    plExit();
     if (s_bBuf) free(s_bBuf);
     if (s_sBuf) free(s_sBuf);
     if (s_rBuf) free(s_rBuf);
@@ -346,7 +383,7 @@ int ui_pane_rows(int railSel, bool ssbuInstalled) {
         // division par zero — un plantage, pas une section vide.
         case RAIL_S3:   return 1;
         case RAIL_SMB35: return 2;   // BCAT + batailles speciales
-        case RAIL_LANG: return 4;                        // EN / ES / PT / FR
+        case RAIL_LANG: return 5;                        // EN / ES / PT / FR / ZH
         default:        return 1;                        // S2, drapeau : une action
     }
 }
@@ -496,8 +533,8 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         if (flagCode && flagCode[0])
             chromeBadge(b, st, x, rowY, w, flagCode, theme_sep(), theme_text());
     } else {
-        static const StringID ids[4] = { STR_LANG_EN, STR_LANG_ES, STR_LANG_PT, STR_LANG_FR };
-        for (int i = 0; i < 4; i++) {
+        static const StringID ids[5] = { STR_LANG_EN, STR_LANG_ES, STR_LANG_PT, STR_LANG_FR, STR_LANG_ZH };
+        for (int i = 0; i < 5; i++) {
             int rowY = y;
             y = chromeRow(b, st, x, y, w, FOC(i), lang_str(ids[i]), NULL);
             if (i == (int)g_lang)
