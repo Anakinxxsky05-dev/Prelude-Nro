@@ -525,7 +525,44 @@
 //           ssbusync sont a prendre dans l'archive du mod, qui l'indique explicitement.
 //           imgui-smash reste a sa v1.0.0 de mars, qui n'a pas de version liee au jeu.
 
-#define NEXTENDO_BUILD 64
+// build 65 : v3.4.3. Les Batailles Speciales de Super Mario Bros. 35, en OPTION,
+//           et les correctifs exefs de Super Mario Bros. Wonder.
+//
+//           SMB35 — le mod de ffsaga (les 27 evenements officiels fondus en un seul,
+//           119 files d'attente) plus le correctif exefs qui allume le mode. Nouvelle
+//           ligne dans la section « Mario 35 », a cote du bouton BCAT qui existait deja.
+//
+//           ⚠️ POURQUOI UN BOUTON ET NON UNE POSE AUTOMATIQUE. Le correctif ne s'ajoute
+//           pas au jeu, il le REMPLACE. Mesure sur le binaire le 2026-09-08 : la fonction
+//           modifiee (offset plat 0x320, game_mode 1 -> 4) n'a QU'UN appelant, 0x9EA9C,
+//           et cet appel est sur la branche de la bataille NORMALE. Pose pour tout le
+//           monde dans romfs:/sd, il aurait transforme la bataille a 35 ordinaire en
+//           bataille speciale pour chaque joueur, sans que personne l'ait demande.
+//           C'est aussi pour ca que ffsaga publie « 1a » (sans) et « 1c » (avec) comme
+//           deux mods qu'on n'installe jamais ensemble. Le mod vit donc dans
+//           romfs:/smb35_spbattle/ et se pose au bouton, comme celui de SSBU, et il est
+//           retire au retour en mode NINTENDO.
+//
+//           ⚠️ REGLE POUR TOUTE MISE A JOUR FUTURE DE sp_battle.dat, donnee par ffsaga et
+//           confirmee sur le binaire : le jeu retient l'INDICE du premier evenement dont
+//           la fenetre est encore ouverte, donc le NOMBRE de blocs perimes fixe le
+//           game_mode, et deux joueurs de game_mode different ne s'apparient pas. Une
+//           deuxieme version du fichier doit porter PLUS de blocs perimes que celle-ci,
+//           une troisieme plus que la deuxieme. Ne jamais en retirer.
+//
+//           ⚠️ INCOMPATIBLE avec les mods de serveur tiers pour SMB35 (« 1a Continued
+//           Interest », « 1b Temporary », « 1c Mario 35 Revamped », « 1d ») et leurs
+//           equivalents PAC-MAN 99. Ceux-la ecrasent le gabarit du serveur NEX
+//           (g%08x-%%.s.n.srv.nintendo.net -> smb35server.com:20000) et neutralisent
+//           l'obtention du jeton de compte Nintendo (nn::account::LoadNetworkService
+//           AccountIdTokenCache). Le jeu ne passe alors plus par le DNS et nous ne le
+//           voyons plus, Prelude installe ou pas.
+//
+//           Wonder — les correctifs exefs (certificat + nom de pair) rejoignent l'arbre
+//           pose pour tout le monde. Sans risque pour qui n'a pas le jeu : Atmosphere
+//           indexe ces correctifs par identifiant de build.
+
+#define NEXTENDO_BUILD 65
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
