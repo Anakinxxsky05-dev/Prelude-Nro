@@ -573,7 +573,28 @@
 //           piege se presente sur ce mod ; les six autres fichiers de l'archive sont
 //           octet pour octet identiques a ceux deja embarques.
 
-#define NEXTENDO_BUILD 67
+// build 68 : v3.4.6. Super Mario Party Jamboree — contournement du certificat epingle.
+//
+//           Jamboree parle NPLN (gRPC sur HTTP/2), pas NEX : mesure du 2026-09-15 sur son
+//           binaire (npln::GrpcDispatcher, npln::NsaIdTokenRetriever, NplnMatchmakingRuleDetail,
+//           et AUCUN gabarit g%08x-lp1.s.n.srv.nintendo.net). Locataire NPLN : t-adf89f68.
+//
+//           Comme Splatoon 3 et Wonder, le jeu embarque sa propre pile TLS et refuse notre
+//           certificat. Le correctif est le meme motif que wondercertbypass : une seule
+//           instruction, MOV W10, #1, qui force le resultat de verification.
+//
+//             build id  D70CE1726C979E45ED4200E9C2B23B2A258FDC18
+//             offset    0xAD39BC   2A 00 80 52
+//
+//           Genere avec generate_patch.py de kinnay/NPLN-Protocols, qui derive l'offset du
+//           NSO au lieu de le coder en dur : il suivra une future mise a jour du jeu.
+//
+//           ⚠️ PAS de correctif de nom de pair ici, contrairement a s3peername et
+//           wonderpeername. Notre certificat couvre deja le locataire par le joker
+//           *.lp1.t.npln.srv.nintendo.net, donc le controle de nom devrait passer. Si une
+//           console echoue malgre le contournement de certificat, c'est la piste suivante.
+
+#define NEXTENDO_BUILD 68
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
