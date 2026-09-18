@@ -594,7 +594,15 @@
 //           *.lp1.t.npln.srv.nintendo.net, donc le controle de nom devrait passer. Si une
 //           console echoue malgre le contournement de certificat, c'est la piste suivante.
 
-#define NEXTENDO_BUILD 68
+// build 69 : v3.4.7. Metal Gear Solid: Peace Walker — contournement du certificat (mgspwcertbypass).
+//
+//           Comme Splatoon 3, Wonder et Jamboree, les correctifs exefs rejoignent l'arbre
+//           romfs:/sd/atmosphere/exefs_patches/mgspwcertbypass/ deploye pour tout le monde
+//           par copyTreeRomfs en mode Nextendo, et retire au retour en mode Nintendo
+//           par removeTreeRomfs.
+//           Build id : BCA1A793E41A4836EF3C03286B18E816EEC62338 (forme 64 hex et forme 16 hex).
+
+#define NEXTENDO_BUILD 69
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -610,7 +618,7 @@
 #define NEXTENDO_VERSION_MINOR 4
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 5
+#define NEXTENDO_VERSION_PATCH 7
 #endif
 
 typedef struct {
