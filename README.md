@@ -48,6 +48,10 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   harmless if you don't own the game (Atmosphère matches by build ID).
 - **Metal Gear Solid: Peace Walker** — ExeFS patches (certificate bypass in `mgspwcertbypass/`)
   deployed automatically under Nextendo mode.
+- **Crash Team Racing: Nitro-Fueled** — ExeFS patches (`dwctrfriendlookup/` and `dwctrtrustcertbypass/`)
+  deployed automatically under Nextendo mode, with Demonware DNS redirection (`*.demonware.net`).
+- **Diablo III: Eternal Collection** — Demonware hosts redirection configured for private servers
+  (no ExeFS patches required).
 - Explicit per-game NEX entries for Mario Tennis Aces, ARMS, Luigi's Mansion 3, Animal Crossing
   and Strikers, on top of the `g2*` wildcard.
 
