@@ -539,10 +539,6 @@ static bool fileExists(const char *path) {
 //     est volontaire : on ne supprime jamais un dossier ou l'utilisateur aurait mis autre
 //     chose). Tout est best-effort : un ENOENT est le cas NORMAL (installation neuve).
 static const char *const NEXTENDO_STALE_FILES[] = {
-    // network_mitm (MITM ssl/ssl:s au boot) — retire au build 4.
-    "sdmc:/atmosphere/contents/4200000000000666/flags/boot2.flag",
-    "sdmc:/atmosphere/contents/4200000000000666/mitm.lst",
-    "sdmc:/atmosphere/contents/4200000000000666/exefs.nsp",
     // Anciens emplacements du bundle CA du navigateur.
     "sdmc:/atmosphere/contents/0100000000000803/romfs/openssl_peer/cacerts.pem",
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro/netfront/openssl_peer/cacerts.pem",
@@ -551,8 +547,6 @@ static const char *const NEXTENDO_STALE_FILES[] = {
 };
 
 static const char *const NEXTENDO_STALE_DIRS[] = {
-    "sdmc:/atmosphere/contents/4200000000000666/flags",
-    "sdmc:/atmosphere/contents/4200000000000666",
     "sdmc:/atmosphere/contents/0100000000000803/romfs/openssl_peer",
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro/netfront/openssl_peer",
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro/netfront",
@@ -849,8 +843,10 @@ bool nextendo_apply_nintendo(void) {
     nextendo_trace("24 removeTreeRomfs ok");
     removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:"); // SSBU online-deluxe mod
     removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:"); // SMB35 batailles speciales
+    nextendo_account_link_remove();                    // sysmodule network_mitm v2 fallback
     nextendo_trace("24d smb35_spbattle retire");
     nextendo_trace("24c ssbu_quickplay retire");
+    nextendo_trace("24e account_link retire");
 
     // TELEMETRIE. L'ancien code posait enable_dns_mitm=0, ce qui desactivait du meme coup le
     // blocage de telemetrie natif d'Atmosphere : la console se retrouvait MOINS protegee qu'une
@@ -1185,4 +1181,141 @@ bool nextendo_ssbu_oc_set(bool enabled) {
     }
     fsdevCommitDevice("sdmc");
     return ok;
+}
+
+// ------------------------------------------------------------------
+//  Fallback de liaison de compte (network_mitm v2 — sysmodule 4200000000000666)
+//  Pour consoles avec PRODINFO en blanc (emuMMC) avec erreur 0x0000167B sur ssl:s.
+// ------------------------------------------------------------------
+#define ACCOUNT_LINK_DIR      "sdmc:/atmosphere/contents/4200000000000666"
+#define ACCOUNT_LINK_FLAGS    ACCOUNT_LINK_DIR "/flags"
+#define ACCOUNT_LINK_BOOTFLAG ACCOUNT_LINK_FLAGS "/boot2.flag"
+#define ACCOUNT_LINK_ROMFS    "romfs:/account_link"
+
+static bool iniSetNetworkMitm(bool enable) {
+    static const char *cfgEnabled =
+        "[network_mitm]\n"
+        "enable_ssl = u8!0x1\n"
+        "targeted_device_pki_mode = u8!0x1\n"
+        "mitm_program_ids = str!0100000000000025 010000000000001E 010000000000002F\n"
+        "trace_internal_pki = u8!0x1\n"
+        "enable_device_cert_fallback = u8!0x1\n"
+        "device_cert_fallback_program_ids = str!0100000000000025 010000000000001E 010000000000002F\n"
+        "enable_account_link_diagnostic = u8!0x0\n"
+        "should_mitm_all = u8!0x0\n"
+        "should_dump_ssl_traffic = u8!0x0\n"
+        "should_disable_ssl_verification = u8!0x0\n";
+    static const char *cfgDisabled =
+        "[network_mitm]\n"
+        "enable_ssl = u8!0x0\n"
+        "enable_device_cert_fallback = u8!0x0\n";
+
+    ensureDir(SETTINGS_DIR);
+
+    char *buf = NULL; long sz = 0;
+    FILE *f = fopen(NEXTENDO_SETTINGS_INI, "rb");
+    if (f) {
+        fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
+        buf = (char *)malloc(sz + 1);
+        if (buf && sz > 0) {
+            size_t nr = fread(buf, 1, sz, f);
+            if (nr != (size_t)sz) { free(buf); buf = NULL; sz = 0; }
+        }
+        if (buf) buf[sz] = '\0';
+        fclose(f);
+    }
+    if (!buf) {
+        return writeTextFile(NEXTENDO_SETTINGS_INI, enable ? cfgEnabled : cfgDisabled);
+    }
+
+    size_t cap = (sz + 1024) * 2;
+    char *out = (char *)malloc(cap);
+    if (!out) { free(buf); return false; }
+    size_t olen = 0;
+
+    #define EMIT_INI(s, n) do { \
+        if (olen + (n) + 1 > cap) { cap = (olen + (n) + 1) * 2; \
+            char *nb = (char *)realloc(out, cap); if (!nb) { free(out); free(buf); return false; } out = nb; } \
+        memcpy(out + olen, (s), (n)); olen += (n); out[olen] = '\0'; } while (0)
+
+    bool inSection = false, sawSection = false;
+    char *line = buf;
+    while (line && *line) {
+        char *nl = strchr(line, '\n');
+        size_t llen = nl ? (size_t)(nl - line + 1) : strlen(line);
+        char *t = line; while (*t == ' ' || *t == '\t') t++;
+
+        if (*t == '[') {
+            if (inSection) {
+                const char *ins = enable ? cfgEnabled : cfgDisabled;
+                EMIT_INI(ins, strlen(ins));
+                inSection = false;
+            }
+            if (strncmp(t, "[network_mitm]", 14) == 0) {
+                inSection = true;
+                sawSection = true;
+            } else {
+                EMIT_INI(line, llen);
+            }
+        } else if (inSection) {
+            // Remplacement complet de l'ancienne section [network_mitm]
+        } else {
+            EMIT_INI(line, llen);
+        }
+        line = nl ? nl + 1 : NULL;
+    }
+
+    if (inSection) {
+        const char *ins = enable ? cfgEnabled : cfgDisabled;
+        if (olen > 0 && out[olen - 1] != '\n') EMIT_INI("\n", 1);
+        EMIT_INI(ins, strlen(ins));
+    } else if (!sawSection) {
+        const char *ins = enable ? cfgEnabled : cfgDisabled;
+        if (olen > 0 && out[olen - 1] != '\n') EMIT_INI("\n", 1);
+        EMIT_INI(ins, strlen(ins));
+    }
+
+    free(buf);
+    f = fopen(NEXTENDO_SETTINGS_INI, "wb");
+    if (!f) { free(out); return false; }
+    bool ok = (fwrite(out, 1, olen, f) == olen);
+    fclose(f);
+    free(out);
+    #undef EMIT_INI
+    return ok;
+}
+
+bool nextendo_account_link_is_installed(void) {
+    return fileExists(ACCOUNT_LINK_BOOTFLAG);
+}
+
+bool nextendo_account_link_is_recommended(void) {
+    BootType boot = nextendo_detect_boot();
+    if (boot == BOOT_EMUMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1"))
+        return true;
+    if (fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_sysmmc=1"))
+        return true;
+    return false;
+}
+
+bool nextendo_account_link_install(void) {
+    ensureDir(ACCOUNT_LINK_FLAGS);
+    bool ok = copyTreeRomfs(ACCOUNT_LINK_ROMFS, "sdmc:");
+    FILE *bf = fopen(ACCOUNT_LINK_BOOTFLAG, "wb");
+    if (bf) fclose(bf);
+    iniSetNetworkMitm(true);
+    fsdevCommitDevice("sdmc");
+    nextendo_trace("24f account_link pose");
+    return ok || fileExists(ACCOUNT_LINK_BOOTFLAG);
+}
+
+void nextendo_account_link_remove(void) {
+    remove(ACCOUNT_LINK_BOOTFLAG);
+    remove(ACCOUNT_LINK_DIR "/mitm.lst");
+    remove(ACCOUNT_LINK_DIR "/exefs.nsp");
+    rmdir(ACCOUNT_LINK_FLAGS);
+    rmdir(ACCOUNT_LINK_DIR);
+    iniSetNetworkMitm(false);
+    fsdevCommitDevice("sdmc");
+    nextendo_trace("24e account_link retire");
 }

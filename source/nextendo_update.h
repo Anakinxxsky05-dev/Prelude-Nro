@@ -602,7 +602,12 @@
 //           par removeTreeRomfs.
 //           Build id : BCA1A793E41A4836EF3C03286B18E816EEC62338 (forme 64 hex et forme 16 hex).
 
-#define NEXTENDO_BUILD 69
+// build 70 : v3.5.0. Fallback de liaison de compte (network_mitm v2 / sysmodule 4200000000000666).
+//           Targeted ssl:s Client-PKI fallback pour consoles avec PRODINFO en blanc / emuMMC.
+//           Section dediee dans le rail, detection de l'etat de la console, confirmation modale
+//           sur certificats d'usine valides, et sortie des artefacts en nextendo.nro.
+
+#define NEXTENDO_BUILD 70
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -615,10 +620,10 @@
 #define NEXTENDO_VERSION_MAJOR 3
 #endif
 #ifndef NEXTENDO_VERSION_MINOR
-#define NEXTENDO_VERSION_MINOR 4
+#define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 7
+#define NEXTENDO_VERSION_PATCH 0
 #endif
 
 typedef struct {

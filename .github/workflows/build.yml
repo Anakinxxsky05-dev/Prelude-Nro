@@ -90,24 +90,44 @@ jobs:
             exit 1
           fi
 
+      - name: Fetch Account Link fallback binary
+        run: |
+          TARGET_DIR="romfs/account_link/atmosphere/contents/4200000000000666"
+          mkdir -p "${TARGET_DIR}/flags"
+          if [ ! -f "${TARGET_DIR}/exefs.nsp" ]; then
+            echo "Fetching network_mitm v2 release asset..."
+            curl -sL "https://github.com/W-874/network_mitm/releases/download/v2.0.0-account-link-fallback/network_mitm-account-link-fallback-v2-system-only.zip" -o /tmp/network_mitm.zip
+            python3 -c "
+import zipfile
+with zipfile.ZipFile('/tmp/network_mitm.zip', 'r') as z:
+    for name in z.namelist():
+        if name.endswith('exefs.nsp'):
+            with open('${TARGET_DIR}/exefs.nsp', 'wb') as f:
+                f.write(z.read(name))
+            print('Extracted', name, 'to ${TARGET_DIR}/exefs.nsp')
+" || true
+            rm -f /tmp/network_mitm.zip
+          fi
+          test -f "${TARGET_DIR}/exefs.nsp" || echo "::warning::exefs.nsp not present"
+
       - name: Build
         run: make -j"$(nproc)"
 
-      - name: Prepare versioned artifact
+      - name: Check NRO output
         run: |
-          cp -f nextendo.nro "Prelude-v${{ steps.version.outputs.app_version }}.nro"
-          ls -l *.nro
+          test -f nextendo.nro
+          ls -lh nextendo.nro
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Prelude-v${{ steps.version.outputs.app_version }}
-          path: Prelude-v${{ steps.version.outputs.app_version }}.nro
+          name: nextendo
+          path: nextendo.nro
           if-no-files-found: error
 
       - name: Upload NRO to release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: Prelude-v${{ steps.version.outputs.app_version }}.nro
+          files: nextendo.nro
           generate_release_notes: true
