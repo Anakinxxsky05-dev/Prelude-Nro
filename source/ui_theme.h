@@ -127,8 +127,9 @@ Color theme_warn(void);      // avertissement (console sans emuMMC)
 #define RAIL_S3   3
 #define RAIL_SMB35 4
 #define RAIL_FLAG 5
-#define RAIL_LANG 6
-#define RAIL_N    7
+#define RAIL_ACCOUNT 6
+#define RAIL_LANG 7
+#define RAIL_N    8
 
 #define COL_RAIL 0
 #define COL_PANE 1

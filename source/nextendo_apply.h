@@ -82,6 +82,13 @@ void nextendo_smb35sp_remove(void);
 bool nextendo_ssbu_oc_is_disabled(void);
 bool nextendo_ssbu_oc_set(bool enabled);
 
+// --- Fallback de vinculacion de cuenta (network_mitm v2 / sysmodule 4200000000000666) ---
+// Para consolas con PRODINFO en blanco (emuMMC) que reciben error 0x0000167B en ssl:s.
+bool nextendo_account_link_is_installed(void);
+bool nextendo_account_link_is_recommended(void);
+bool nextendo_account_link_install(void);
+void nextendo_account_link_remove(void);
+
 // --- Etat des correctifs Splatoon 3 poses sur la carte SD. ---
 // Le jeu embarque sa propre pile TLS et refuse notre certificat sans ces correctifs :
 // sans eux, 2122-2403 des l'entree en ligne. Atmosphere les applique par identifiant de

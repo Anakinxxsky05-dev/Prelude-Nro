@@ -179,6 +179,17 @@ typedef enum {
     STR_STATUS_SMB35_OK_DESC,         // detail du resultat
     STR_STATUS_NO_EVENT,              // 204 : aucun evenement publie
     STR_STATUS_NO_EVENT_DESC,
+    STR_RAIL_ACCOUNT,                 // "Account Link"
+    STR_DESC_ACCOUNT,                 // description fallback PKI
+    STR_ACCOUNT_STATUS_ON,            // "Activo"
+    STR_ACCOUNT_STATUS_OFF,           // "Inactivo"
+    STR_ACCOUNT_REC_YES,              // "Recomendado"
+    STR_ACCOUNT_REC_NO,               // "No necesario"
+    STR_ACCOUNT_WARN_TITLE,           // pop-up titre
+    STR_ACCOUNT_WARN_L1,              // pop-up ligne 1
+    STR_ACCOUNT_WARN_L2,              // pop-up ligne 2
+    STR_ACCOUNT_TOAST_ON,             // toast active
+    STR_ACCOUNT_TOAST_OFF,            // toast desactive
     STR_RAIL_LANG,                    // "Language"    (R)
 
     // --- Section Splatoon 3 : etat des correctifs ---

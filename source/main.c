@@ -42,7 +42,7 @@ enum {
     SCREEN_UPD_CONFIRM, SCREEN_UPD_PROGRESS, SCREEN_UPD_RESULT,
     SCREEN_FLAG_MENU, SCREEN_FLAG_PROGRESS, SCREEN_FLAG_RESULT,
     SCREEN_BACKUP_ASK, SCREEN_USEBAK_ASK,
-    SCREEN_MODS_ASK,
+    SCREEN_MODS_ASK, SCREEN_ACCOUNT_WARN,
     // Smash et Langue ne sont plus des ecrans : leur contenu vit dans le
     // panneau du rail. Ne restent modaux que confirmation / progression /
     // resultat, et la liste de 110 pays, trop longue pour un panneau.
@@ -257,6 +257,8 @@ int main(int argc, char **argv) {
     // Overclock embarque du mod : lu depuis la SD (presence de boot2.flag), pas
     // suppose — le joueur a pu le couper a un lancement precedent de Prelude.
     bool ssbuOcDisabled = nextendo_ssbu_oc_is_disabled();
+    bool accountInstalled = nextendo_account_link_is_installed();
+    bool accountRecommended = nextendo_account_link_is_recommended();
 
     // Séquence ↑↓←→ pour basculer l'IP du serveur.
     enum { SEQ_IDLE, SEQ_UP, SEQ_UP_DOWN, SEQ_UP_DOWN_LEFT };
@@ -418,6 +420,22 @@ int main(int argc, char **argv) {
                             }
                             break;
                         case RAIL_FLAG: screen = SCREEN_FLAG_MENU; break;
+                        case RAIL_ACCOUNT:
+                            if (accountInstalled) {
+                                nextendo_account_link_remove();
+                                accountInstalled = false;
+                                snprintf(status, sizeof(status), "%s", lang_str(STR_ACCOUNT_TOAST_OFF));
+                            } else {
+                                if (accountRecommended) {
+                                    accountInstalled = nextendo_account_link_install();
+                                    snprintf(status, sizeof(status), "%s",
+                                             lang_str(accountInstalled ? STR_ACCOUNT_TOAST_ON
+                                                                       : STR_STATUS_SD_ERROR));
+                                } else {
+                                    screen = SCREEN_ACCOUNT_WARN;
+                                }
+                            }
+                            break;
                         case RAIL_LANG:
                             if (paneSel != (int)g_lang) { g_lang = (Lang)paneSel; lang_save(); }
                             break;
@@ -462,7 +480,8 @@ int main(int argc, char **argv) {
                                        upd.available ? upd.min : 0,
                                        upd.available ? upd.patch : 0,
                                        flagCurrent, ssbuInstalled, ssbuOcDisabled,
-                                       smb35spInstalled, &s3);
+                                       smb35spInstalled,
+                                       accountInstalled, accountRecommended, &s3);
                 }
 
                 // Toast du serveur
@@ -489,7 +508,8 @@ int main(int argc, char **argv) {
                                        upd.available ? upd.min : 0,
                                        upd.available ? upd.patch : 0,
                                        flagCurrent, ssbuInstalled, ssbuOcDisabled,
-                                       smb35spInstalled, &s3);
+                                       smb35spInstalled,
+                                       accountInstalled, accountRecommended, &s3);
                         svcSleepThread(1200000000ULL);
                         audio_exit();
                         nextendo_reboot();
@@ -529,6 +549,20 @@ int main(int argc, char **argv) {
                 ui_draw_question(lang_str(STR_MODS_TITLE),
                                  lang_str(STR_MODS_BODY1),
                                  lang_str(STR_MODS_BODY2));
+
+        } else if (screen == SCREEN_ACCOUNT_WARN) {
+            if (k & HidNpadButton_A) {
+                accountInstalled = nextendo_account_link_install();
+                snprintf(status, sizeof(status), "%s",
+                         lang_str(accountInstalled ? STR_ACCOUNT_TOAST_ON : STR_STATUS_SD_ERROR));
+                screen = SCREEN_PICKER;
+            } else if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
+                screen = SCREEN_PICKER;
+            }
+            if (screen == SCREEN_ACCOUNT_WARN)
+                ui_draw_question(lang_str(STR_ACCOUNT_WARN_TITLE),
+                                 lang_str(STR_ACCOUNT_WARN_L1),
+                                 lang_str(STR_ACCOUNT_WARN_L2));
 
         } else if (screen == SCREEN_BACKUP_ASK) {
             if (k & HidNpadButton_A) {

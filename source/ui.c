@@ -366,6 +366,7 @@ static const char *railLabel(int i) {
         case RAIL_S3:   return lang_str(STR_RAIL_S3);
         case RAIL_SMB35: return lang_str(STR_RAIL_SMB35);
         case RAIL_FLAG: return lang_str(STR_RAIL_FLAG);
+        case RAIL_ACCOUNT: return lang_str(STR_RAIL_ACCOUNT);
         default:        return lang_str(STR_RAIL_LANG);
     }
 }
@@ -383,6 +384,7 @@ int ui_pane_rows(int railSel, bool ssbuInstalled) {
         // division par zero — un plantage, pas une section vide.
         case RAIL_S3:   return 1;
         case RAIL_SMB35: return 2;   // BCAT + batailles speciales
+        case RAIL_ACCOUNT: return 1; // Fallback de vinculacion
         case RAIL_LANG: return 5;                        // EN / ES / PT / FR / ZH
         default:        return 1;                        // S2, drapeau : une action
     }
@@ -412,6 +414,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
                     const char *status, int updMaj, int updMin, int updPatch,
                     const char *flagCode, bool ssbuInstalled, bool ssbuOcDisabled,
                     bool smb35spInstalled,
+                    bool accountInstalled, bool accountRecommended,
                     const NextendoS3Status *s3) {
     u32 st;
     u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
@@ -532,6 +535,17 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_FLAG), lang_str(STR_DESC_FLAG));
         if (flagCode && flagCode[0])
             chromeBadge(b, st, x, rowY, w, flagCode, theme_sep(), theme_text());
+    } else if (railSel == RAIL_ACCOUNT) {
+        int rowY = y;
+        y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_ACCOUNT), lang_str(STR_DESC_ACCOUNT));
+        chromeBadge(b, st, x, rowY, w,
+                    lang_str(accountInstalled ? STR_ACCOUNT_STATUS_ON : STR_ACCOUNT_STATUS_OFF),
+                    accountInstalled ? theme_ok() : theme_sep(),
+                    accountInstalled ? COL(0xFF,0xFF,0xFF) : theme_text2());
+        u32 diagCol = accountRecommended ? packColor(theme_ok()) : packColor(theme_warn());
+        drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, diagCol,
+              lang_str(accountRecommended ? STR_ACCOUNT_REC_YES : STR_ACCOUNT_REC_NO));
+        y += FS_CAP + SP_SM;
     } else {
         static const StringID ids[5] = { STR_LANG_EN, STR_LANG_ES, STR_LANG_PT, STR_LANG_FR, STR_LANG_ZH };
         for (int i = 0; i < 5; i++) {
