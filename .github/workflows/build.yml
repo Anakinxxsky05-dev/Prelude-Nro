@@ -97,15 +97,7 @@ jobs:
           if [ ! -f "${TARGET_DIR}/exefs.nsp" ]; then
             echo "Fetching network_mitm v2 release asset..."
             curl -sL "https://github.com/W-874/network_mitm/releases/download/v2.0.0-account-link-fallback/network_mitm-account-link-fallback-v2-system-only.zip" -o /tmp/network_mitm.zip
-            python3 -c "
-import zipfile
-with zipfile.ZipFile('/tmp/network_mitm.zip', 'r') as z:
-    for name in z.namelist():
-        if name.endswith('exefs.nsp'):
-            with open('${TARGET_DIR}/exefs.nsp', 'wb') as f:
-                f.write(z.read(name))
-            print('Extracted', name, 'to ${TARGET_DIR}/exefs.nsp')
-" || true
+            python3 -c "import zipfile; z=zipfile.ZipFile('/tmp/network_mitm.zip'); f=[n for n in z.namelist() if n.endswith('exefs.nsp')][0]; open('${TARGET_DIR}/exefs.nsp', 'wb').write(z.read(f))" || true
             rm -f /tmp/network_mitm.zip
           fi
           test -f "${TARGET_DIR}/exefs.nsp" || echo "::warning::exefs.nsp not present"
