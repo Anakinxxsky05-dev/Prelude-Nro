@@ -148,6 +148,10 @@ char *nextendo_hosts_build(const char *ip) {
     // pour les jeux NEX ci-dessus (le * mid-label peut etre ignore sur certains builds).
     snprintf(line, sizeof(line), "%s t-dce9377b-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line);
     snprintf(line, sizeof(line), "%s t-adf89f68-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line);
+    // lp1.nso : l'applet NSO lui-meme. Il finit par .nintendo.net et NON par
+    // srv.nintendo.net, donc AUCUN wildcard existant ne le couvre — meme piege que
+    // dragons plus bas. Sans cette ligne l'applet part chez le vrai Nintendo.
+    snprintf(line, sizeof(line), "%s lp1.nso.nintendo.net\n", ip);                        EMIT_H(line);
     snprintf(line, sizeof(line), "%s gw.hac.lp1.vermillion.srv.nintendo.net\n", ip);     EMIT_H(line);
     snprintf(line, sizeof(line), "%s val.hac.lp1.penne.srv.nintendo.net\n", ip);         EMIT_H(line);
     snprintf(line, sizeof(line), "%s fro-3.hac.lp1.penne.srv.nintendo.net\n", ip);       EMIT_H(line);
@@ -203,9 +207,15 @@ char *nextendo_hosts_build(const char *ip) {
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
 
-    EMIT_H("\n# --- 3) ANTI-BAN : telemetrie -> trou noir ---\n");
-    EMIT_H("0.0.0.0          receive-%.dg.srv.nintendo.net\n");
-    EMIT_H("0.0.0.0          receive-%.er.srv.nintendo.net\n");
+    EMIT_H("\n# --- 3) ANTI-BAN : telemetrie -> notre puits, PAS un trou noir ---\n");
+    // Mesure de Kazu, 2026-09 : l'applet NSO (0100000000000816) attend SYNCHRONEMENT une
+    // reponse HTTP de ces deux hotes prepo AVANT de charger lp1.nso. Null-routees, elles
+    // pendent jusqu'au timeout et l'applet abandonne sans jamais atteindre lp1.nso — donc
+    // pas de gestion d'icone de profil. nx-account expose un puits (serveRapportJeu) qui
+    // lit la charge, la jette sans rien stocker et rend 200 immediatement : la telemetrie
+    // ne part toujours PAS chez Nintendo, et l'applet obtient la reponse qu'il attend.
+    snprintf(line, sizeof(line), "%s          receive-%%.dg.srv.nintendo.net\n", ip); EMIT_H(line);
+    snprintf(line, sizeof(line), "%s          receive-%%.er.srv.nintendo.net\n", ip); EMIT_H(line);
 
     EMIT_H("\n# --- 4) d4c (MAJ systeme) -> NON REDIRIGE ---\n");
     EMIT_H("# NE PAS null-router : nim stocke un flag persistant.\n\n");
@@ -592,6 +602,7 @@ static bool nextendo_provision_all(void) {
 #define NEXTENDO_BACKUP_DIR    "sdmc:/switch/prelude_hosts_backup"
 #define NEXTENDO_BACKUP_SYSMMC NEXTENDO_BACKUP_DIR "/sysmmc.txt"
 #define NEXTENDO_BACKUP_EMUMMC NEXTENDO_BACKUP_DIR "/emummc.txt"
+#define NEXTENDO_BACKUP_DEFAULT NEXTENDO_BACKUP_DIR "/default.txt"
 #define NEXTENDO_BACKUP_CFG    "sdmc:/switch/prelude_backup.cfg"
 
 static bool copyFileRaw(const char *src, const char *dst) {
@@ -647,6 +658,10 @@ int nextendo_hosts_backup_create(void) {
         copyFileRaw(NEXTENDO_HOSTS_SYSMMC, NEXTENDO_BACKUP_SYSMMC)) n++;
     if (backupCandidateOk(NEXTENDO_HOSTS_EMUMMC) &&
         copyFileRaw(NEXTENDO_HOSTS_EMUMMC, NEXTENDO_BACKUP_EMUMMC)) n++;
+    // default.txt : on sauvegarde meme s'il n'a PAS notre en-tete — c'est justement le cas
+    // qui nous interesse, celui de l'utilisateur qui y garde ses propres entrees.
+    if (fileExists(NEXTENDO_HOSTS_DEFAULT) &&
+        copyFileRaw(NEXTENDO_HOSTS_DEFAULT, NEXTENDO_BACKUP_DEFAULT)) n++;
     fsdevCommitDevice("sdmc");
     nextendo_trace(n ? "50 backup hosts cree" : "50 backup hosts: rien a sauvegarder");
     return n;
@@ -667,6 +682,8 @@ int nextendo_hosts_backup_restore(void) {
         copyFileRaw(NEXTENDO_BACKUP_SYSMMC, NEXTENDO_HOSTS_SYSMMC)) n++;
     if (backupCandidateOk(NEXTENDO_BACKUP_EMUMMC) &&
         copyFileRaw(NEXTENDO_BACKUP_EMUMMC, NEXTENDO_HOSTS_EMUMMC)) n++;
+    if (fileExists(NEXTENDO_BACKUP_DEFAULT) &&
+        copyFileRaw(NEXTENDO_BACKUP_DEFAULT, NEXTENDO_HOSTS_DEFAULT)) n++;
     return n;
 }
 
@@ -779,8 +796,17 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
     }
     char *hosts = nextendo_hosts_build(ip);
     if (!hosts) return false;
+    // Le default.txt de l'utilisateur est sauvegarde AVANT d'etre ecrase ; apply_nintendo
+    // le remet. Sans cette sauvegarde on detruirait ses entrees a la premiere activation.
+    if (fileExists(NEXTENDO_HOSTS_DEFAULT) && !fileExists(NEXTENDO_BACKUP_DEFAULT)) {
+        ensureDir("sdmc:/switch");
+        ensureDir(NEXTENDO_BACKUP_DIR);
+        copyFileRaw(NEXTENDO_HOSTS_DEFAULT, NEXTENDO_BACKUP_DEFAULT);
+    }
     bool a = writeTextFile(NEXTENDO_HOSTS_SYSMMC, hosts);
     bool b = writeTextFile(NEXTENDO_HOSTS_EMUMMC, hosts);
+    bool d = writeTextFile(NEXTENDO_HOSTS_DEFAULT, hosts);
+    if (!d) nextendo_trace("28d WARN: default.txt non ecrit");
     free(hosts);
     // add_defaults_to_dns_hosts = 1, comme en mode NINTENDO. C'ETAIT A 0 : en mode
     // NEXTENDO la table de telemetrie native d'Atmosphere n'etait donc PAS fusionnee,
@@ -792,12 +818,20 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
     // les serveurs de telemetrie (receive-%), qu'on null-route deja, et jamais
     // accounts.nintendo.com ni les hotes de jeu. Le seul recouvrement est receive-%,
     // ou les deux valeurs bloquent (0.0.0.0 chez nous, 127.0.0.1 chez eux).
-    bool i = iniSetDnsMitm(true, true);
+    // add_defaults_to_dns_hosts = 0 en mode NEXTENDO (Kazu, 2026-09). La table native
+    // d'Atmosphere redirige receive-%.dg/er vers 127.0.0.1 ; fusionnee, elle REBLOQUE la
+    // telemetrie que nous venons de rediriger vers notre puits, et l'applet NSO repend.
+    // Ce n'est PAS un retour en arriere sur le correctif de TherealJaw : son probleme etait
+    // que la telemetrie partait sans blocage. Ici elle reste bloquee — par NOS deux lignes,
+    // qui l'envoient a notre puits au lieu de chez Nintendo. La protection est conservee,
+    // c'est seulement la source du blocage qui change. En mode NINTENDO, add_defaults
+    // reste a 1 : nos lignes sont parties, la table native reprend le relais.
+    bool i = iniSetDnsMitm(true, false);
     bool p = iniSetBlankProdinfoEmummc(false);
     if (!p) nextendo_trace("29 WARN: iniSetBlankProdinfoEmummc(false) a echoue -> risque 2123-0011");
     nextendo_purge_leaks();
     fsdevCommitDevice("sdmc");
-    return a && b && i && p;
+    return a && b && d && i && p;
 }
 
 bool nextendo_apply_nextendo(void) {
@@ -811,6 +845,14 @@ bool nextendo_apply_nintendo(void) {
     // lisible sur la carte.
     remove(NEXTENDO_HOSTS_SYSMMC);
     remove(NEXTENDO_HOSTS_EMUMMC);
+    // default.txt : on n'efface que S'IL EST DE NOUS. Un default.txt que l'utilisateur
+    // ecrivait deja avant Prelude ne nous appartient pas, et le supprimer lui ferait perdre
+    // ses entrees sans qu'il ait rien demande. La restauration juste en dessous remet la
+    // version sauvegardee quand il y en a une.
+    if (fileHas(NEXTENDO_HOSTS_DEFAULT, "NEXTENDO NETWORK")) {
+        remove(NEXTENDO_HOSTS_DEFAULT);
+        nextendo_trace("21c default.txt (le notre) supprime");
+    }
     nextendo_trace("21 hosts supprimes");
     // L'utilisateur a demande a retrouver SES redirections d'origine : on les remet
     // APRES la suppression. La sauvegarde a ete refusee a la creation si elle contenait

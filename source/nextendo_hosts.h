@@ -47,6 +47,11 @@ char *nextendo_hosts_build(const char *ip);
 
 #define NEXTENDO_HOSTS_SYSMMC "sdmc:/atmosphere/hosts/sysmmc.txt"
 #define NEXTENDO_HOSTS_EMUMMC "sdmc:/atmosphere/hosts/emummc.txt"
+// default.txt : Atmosphere y retombe selon la configuration de demarrage et selon les
+// installations deja en place (demande de Kazu, 2026-09). Ce fichier APPARTIENT a
+// l'utilisateur — beaucoup y gardent leurs propres entrees —, donc on le sauvegarde avant
+// de l'ecrire et on le REMET tel quel en mode Nintendo, au lieu de l'effacer.
+#define NEXTENDO_HOSTS_DEFAULT "sdmc:/atmosphere/hosts/default.txt"
 #define NEXTENDO_HOSTS_DIR    "sdmc:/atmosphere/hosts"
 #define NEXTENDO_SETTINGS_INI "sdmc:/atmosphere/config/system_settings.ini"
 
