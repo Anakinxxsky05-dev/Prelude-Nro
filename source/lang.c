@@ -549,7 +549,7 @@ static const char *s_strings[STR_COUNT][5] = {
     [STR_RAIL_S2]     = { "Splatoon 2 & 3", "Splatoon 2 & 3", "Splatoon 2 & 3", "Splatoon 2 & 3", "Splatoon 2 & 3" },
     [STR_RAIL_FLAG]   = { "Country",    "Pais",       "Pais",       "Pays",       "国家" },
     [STR_RAIL_SSBU]   = { "Smash",      "Smash",      "Smash",      "Smash",      "Smash" },
-    [STR_RAIL_S3]     = { "Game Patches", "Game Patches", "Game Patches", "Game Patches", "Game Patches" },
+    [STR_RAIL_S3]     = { "Game Patches", "Parches de juego", "Correcoes de jogos", "Correctifs de jeux", "游戏补丁" },
     [STR_SMB35SP]      = { "Special Battle", "Batalla Especial", "Batalha Especial", "Bataille Speciale",
                            "特殊对战" },
     [STR_SMB35SP_ON]   = { "Installed. The normal 35-player battle is now a Special Battle.",
