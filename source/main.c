@@ -235,7 +235,7 @@ int main(int argc, char **argv) {
     // certificats, et la reposer en douce serait une faille, pas un confort.
     if (current == CHOICE_NEXTENDO) nextendo_provision_all_public();
 
-    NextendoS3Status s3;
+    static NextendoS3Status s3;
     nextendo_s3_status(&s3);
     int  sel    = (current == CHOICE_NEXTENDO) ? CHOICE_NINTENDO : CHOICE_NEXTENDO;
     int  railSel = RAIL_MODE;   // section du rail

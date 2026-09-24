@@ -477,7 +477,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         // reellement actionnable, et il est le seul a porter ce style.
         u32 cInfo = packColor(theme_text2());
         u32 cWarn = packColor(theme_warn());
-        char ligne[192];
+        char ligne[256];
         bool aJour = (s3 && s3->onSd > 0 && s3->onSd >= s3->inRomfs);
 
         if (s3 && current == CHOICE_NINTENDO) {
@@ -491,18 +491,38 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
             snprintf(ligne, sizeof(ligne), lang_str(STR_S3_OK), s3->onSd);
             drawF(b, st, s_semi, x, y + FS_BODY, FS_BODY, cInfo, ligne);
         }
-        y += FS_BODY + SP_MD;
+        y += FS_BODY + SP_SM;
 
         if (s3 && !s3->dnsMitmOn && current != CHOICE_NINTENDO) {
             drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cWarn, lang_str(STR_S3_DNS_OFF));
-            y += FS_CAP + SP_SM;
+            y += FS_CAP + 4;
         }
         drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cInfo, lang_str(STR_S3_WHERE));
-        y += FS_CAP + SP_SM;
+        y += FS_CAP + 4;
         drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cInfo, lang_str(STR_S3_LIMIT));
         y += FS_CAP + SP_SM;
-        drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cInfo, lang_str(STR_S3_VERSION));
-        y += FS_CAP + SP_LG;
+
+        // Liste des jeux detectes avec leurs dossiers et nombre de patchs
+        if (s3 && current != CHOICE_NINTENDO && s3->installedGameCount > 0) {
+            for (int i = 0; i < s3->installedGameCount; i++) {
+                const NextendoGamePatchStatus *gp = &s3->installedGames[i];
+                char folderList[192] = "";
+                for (int f = 0; f < gp->folderCount; f++) {
+                    if (f > 0) strncat(folderList, ", ", sizeof(folderList) - strlen(folderList) - 1);
+                    strncat(folderList, "\"", sizeof(folderList) - strlen(folderList) - 1);
+                    strncat(folderList, gp->folders[f], sizeof(folderList) - strlen(folderList) - 1);
+                    strncat(folderList, "\"", sizeof(folderList) - strlen(folderList) - 1);
+                }
+                char patchStr[32];
+                snprintf(patchStr, sizeof(patchStr),
+                         lang_str(gp->patchCount == 1 ? STR_PATCH_COUNT_SINGULAR : STR_PATCH_COUNT_PLURAL),
+                         gp->patchCount);
+                snprintf(ligne, sizeof(ligne), "- %s (%s): %s", gp->gameName, patchStr, folderList);
+                drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cInfo, ligne);
+                y += FS_CAP + 6;
+            }
+            y += SP_SM;
+        }
 
         // La SEULE ligne actionnable. En mode Nintendo elle n'apparait pas : ce mode
         // retire volontairement la pile de certificats, et un bouton qui la repose
