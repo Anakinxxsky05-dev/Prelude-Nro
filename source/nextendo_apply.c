@@ -152,6 +152,8 @@ char *nextendo_hosts_build(const char *ip) {
     // srv.nintendo.net, donc AUCUN wildcard existant ne le couvre — meme piege que
     // dragons plus bas. Sans cette ligne l'applet part chez le vrai Nintendo.
     snprintf(line, sizeof(line), "%s lp1.nso.nintendo.net\n", ip);                        EMIT_H(line);
+    snprintf(line, sizeof(line), "%s t-7b4e32ca-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line); // N64 Classics
+    snprintf(line, sizeof(line), "%s api-lp1.znc.srv.nintendo.net\n", ip);               EMIT_H(line); // N64 Classics
     snprintf(line, sizeof(line), "%s gw.hac.lp1.vermillion.srv.nintendo.net\n", ip);     EMIT_H(line);
     snprintf(line, sizeof(line), "%s val.hac.lp1.penne.srv.nintendo.net\n", ip);         EMIT_H(line);
     snprintf(line, sizeof(line), "%s fro-3.hac.lp1.penne.srv.nintendo.net\n", ip);       EMIT_H(line);
