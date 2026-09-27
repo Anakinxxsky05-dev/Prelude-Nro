@@ -223,6 +223,9 @@ int main(int argc, char **argv) {
                                         : "12 detect_boot = INCONNU (spl a echoue)");
     bool noEmummc = (boot == BOOT_SYSMMC);
 
+    // Si un ancien build a pose n64classics-nextendo sur la SD, le purger
+    nextendo_purge_legacy_n64_patch();
+
     int  current = nextendo_current_mode();
     // --- Rafraichir la carte SD au demarrage, si le mode Nextendo est DEJA actif. ---
     // Les fichiers du romfs (correctifs Splatoon 3, CA, patches navigateur) n'etaient

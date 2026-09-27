@@ -117,6 +117,7 @@ typedef struct {
 
 void nextendo_s3_status(NextendoS3Status *out);
 bool nextendo_provision_all_public(void);
+void nextendo_purge_legacy_n64_patch(void);
 
 // --- Sauvegarde des hosts dns.mitm que l'utilisateur avait AVANT Prelude. ---
 // create/restore renvoient le NOMBRE de fichiers traites (0 = rien a faire, pas une erreur).

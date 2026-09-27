@@ -565,6 +565,24 @@ static const char *const NEXTENDO_STALE_DIRS[] = {
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro",
 };
 
+// --- Nettoyage de l'ancien dossier n64classics-nextendo s'il existe sur la SD ---
+// Remplace par les dossiers nson64certbypass et nson64peername.
+// Si le dossier n'existe pas, la fonction ne fait rien.
+void nextendo_purge_legacy_n64_patch(void) {
+    const char *dir = "sdmc:/atmosphere/exefs_patches/n64classics-nextendo";
+    DIR *d = opendir(dir);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char path[FS_MAX_PATH];
+        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        remove(path);
+    }
+    closedir(d);
+    rmdir(dir);
+}
+
 // --- Efface ce qu'un ancien .nro a pose et qu'on ne livre plus. Renvoie le nombre de
 //     fichiers reellement supprimes (0 = installation deja propre / neuve).
 static int nextendo_purge_stale(void) {
@@ -573,6 +591,7 @@ static int nextendo_purge_stale(void) {
         if (remove(NEXTENDO_STALE_FILES[i]) == 0) removed++;
     for (size_t i = 0; i < sizeof(NEXTENDO_STALE_DIRS) / sizeof(NEXTENDO_STALE_DIRS[0]); i++)
         rmdir(NEXTENDO_STALE_DIRS[i]);   // echoue si non vide -> volontaire
+    nextendo_purge_legacy_n64_patch();
     return removed;
 }
 
