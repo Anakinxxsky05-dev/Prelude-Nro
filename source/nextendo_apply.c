@@ -799,6 +799,7 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Metal Gear Solid: Peace Walker", "mgspw*" },
     { "Overcooked 2",                   "overcooked2*" },
     { "Nintendo Classics: Nintendo 64", "nson64*" },
+    { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
 };
 #define GAME_PATCH_DEFS_COUNT (sizeof(s_gamePatchDefs) / sizeof(s_gamePatchDefs[0]))
 
