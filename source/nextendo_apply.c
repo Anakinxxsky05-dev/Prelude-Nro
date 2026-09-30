@@ -155,6 +155,8 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s t-7b4e32ca-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line); // N64 Classics
     snprintf(line, sizeof(line), "%s api-lp1.znc.srv.nintendo.net\n", ip);               EMIT_H(line); // N64 Classics
     snprintf(line, sizeof(line), "%s t-4e44e7a0-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line); // Legends: Z-A
+    snprintf(line, sizeof(line), "%s t-50e39f8f-lp1.lp1.t.npln.srv.nintendo.net\n", ip); EMIT_H(line); // Scarlet / Violet
+    snprintf(line, sizeof(line), "%s v3-lp1.vp.n.srv.nintendo.net\n", ip);               EMIT_H(line); // Scarlet / Violet
     snprintf(line, sizeof(line), "%s gw.hac.lp1.vermillion.srv.nintendo.net\n", ip);     EMIT_H(line);
     snprintf(line, sizeof(line), "%s val.hac.lp1.penne.srv.nintendo.net\n", ip);         EMIT_H(line);
     snprintf(line, sizeof(line), "%s fro-3.hac.lp1.penne.srv.nintendo.net\n", ip);       EMIT_H(line);
