@@ -566,6 +566,24 @@ static const char *const NEXTENDO_STALE_DIRS[] = {
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro",
 };
 
+// --- Nettoyage de l'ancien dossier n64classics-nextendo s'il existe sur la SD ---
+// Remplace par les dossiers nson64certbypass et nson64peername.
+// Si le dossier n'existe pas, la fonction ne fait rien.
+void nextendo_purge_legacy_n64_patch(void) {
+    const char *dir = "sdmc:/atmosphere/exefs_patches/n64classics-nextendo";
+    DIR *d = opendir(dir);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        char path[FS_MAX_PATH];
+        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        remove(path);
+    }
+    closedir(d);
+    rmdir(dir);
+}
+
 // --- Efface ce qu'un ancien .nro a pose et qu'on ne livre plus. Renvoie le nombre de
 //     fichiers reellement supprimes (0 = installation deja propre / neuve).
 static int nextendo_purge_stale(void) {
@@ -574,6 +592,7 @@ static int nextendo_purge_stale(void) {
         if (remove(NEXTENDO_STALE_FILES[i]) == 0) removed++;
     for (size_t i = 0; i < sizeof(NEXTENDO_STALE_DIRS) / sizeof(NEXTENDO_STALE_DIRS[0]); i++)
         rmdir(NEXTENDO_STALE_DIRS[i]);   // echoue si non vide -> volontaire
+    nextendo_purge_legacy_n64_patch();
     return removed;
 }
 
@@ -763,6 +782,45 @@ void nextendo_backup_set_use_for_nintendo(bool on) {
 //  qu'Atmosphere a APPLIQUE. Un identifiant de build inconnu ne recoit rien, en
 //  silence, et aucun comptage de fichiers ne peut le voir.
 // ============================================================================
+// ============================================================================
+//  Table de definition des patchs de jeux (Game Patches)
+// ----------------------------------------------------------------------------
+//  Chaque jeu est associe a un masque de prefixe de dossier (ex: "wonder*").
+//  Pour ajouter un nouveau jeu :
+//    1. Ajouter une ligne { "Nom du jeu", "prefixe*" } ci-dessous.
+//    2. Placer le dossier de patchs dans atmosphere/exefs_patches/<prefixe>...
+//  Prelude detectera automatiquement les dossiers correspondants et comptera
+//  les fichiers .ips presents.
+// ============================================================================
+static const GamePatchDef s_gamePatchDefs[] = {
+    { "Super Mario Wonder",             "wonder*" },
+    { "Splatoon 3",                     "s3*" },
+    { "Crash Team Racing",              "dwctr*" },
+    { "Mario Party Jamboree",           "jamboree*" },
+    { "Metal Gear Solid: Peace Walker", "mgspw*" },
+    { "Overcooked 2",                   "overcooked2*" },
+    { "Nintendo Classics: Nintendo 64", "nson64*" },
+    { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
+    { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
+};
+#define GAME_PATCH_DEFS_COUNT (sizeof(s_gamePatchDefs) / sizeof(s_gamePatchDefs[0]))
+
+static bool prefixMatches(const char *folderName, const char *pattern) {
+    if (!folderName || !pattern) return false;
+    const char *p = pattern;
+    while (*p) {
+        while (*p == ' ' || *p == ',') p++;
+        if (!*p) break;
+        const char *end = p;
+        while (*end && *end != ',' && *end != ' ') end++;
+        size_t len = (size_t)(end - p);
+        if (len > 0 && p[len - 1] == '*') len--;
+        if (len > 0 && strncmp(folderName, p, len) == 0) return true;
+        p = end;
+    }
+    return false;
+}
+
 static int countIps(const char *dir) {
     DIR *d = opendir(dir);
     if (!d) return 0;
@@ -782,10 +840,93 @@ bool nextendo_provision_all_public(void) { return nextendo_provision_all(); }
 
 void nextendo_s3_status(NextendoS3Status *out) {
     if (!out) return;
-    out->onSd = countIps("sdmc:/atmosphere/exefs_patches/s3certbypass") +
-                countIps("sdmc:/atmosphere/exefs_patches/s3peername");
-    out->inRomfs = countIps("romfs:/sd/atmosphere/exefs_patches/s3certbypass") +
-                   countIps("romfs:/sd/atmosphere/exefs_patches/s3peername");
+    memset(out, 0, sizeof(*out));
+
+    typedef struct {
+        int  patchCount;
+        int  folderCount;
+        char folders[NEXTENDO_MAX_GAME_FOLDERS][NEXTENDO_MAX_FOLDER_NAME];
+    } TempGameScan;
+
+    TempGameScan scan[GAME_PATCH_DEFS_COUNT];
+    memset(scan, 0, sizeof(scan));
+
+    // 1. Scanner les dossiers sur la carte SD
+    DIR *d = opendir("sdmc:/atmosphere/exefs_patches");
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+            char path[FS_MAX_PATH];
+            snprintf(path, sizeof(path), "sdmc:/atmosphere/exefs_patches/%s", e->d_name);
+            struct stat st;
+            if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+
+            for (size_t g = 0; g < GAME_PATCH_DEFS_COUNT; g++) {
+                if (prefixMatches(e->d_name, s_gamePatchDefs[g].prefix)) {
+                    int ips = countIps(path);
+                    out->onSd += ips;
+                    if (scan[g].folderCount < NEXTENDO_MAX_GAME_FOLDERS) {
+                        strncpy(scan[g].folders[scan[g].folderCount], e->d_name, NEXTENDO_MAX_FOLDER_NAME - 1);
+                        scan[g].folders[scan[g].folderCount][NEXTENDO_MAX_FOLDER_NAME - 1] = '\0';
+                        scan[g].folderCount++;
+                    }
+                    scan[g].patchCount += ips;
+                    break;
+                }
+            }
+        }
+        closedir(d);
+    }
+
+    // 2. Remplir la liste des jeux installes (dans l'ordre de definition)
+    for (size_t g = 0; g < GAME_PATCH_DEFS_COUNT; g++) {
+        if (scan[g].folderCount > 0 && out->installedGameCount < NEXTENDO_MAX_GAMES) {
+            NextendoGamePatchStatus *ig = &out->installedGames[out->installedGameCount++];
+            strncpy(ig->gameName, s_gamePatchDefs[g].gameName, sizeof(ig->gameName) - 1);
+            ig->gameName[sizeof(ig->gameName) - 1] = '\0';
+            ig->folderCount = scan[g].folderCount;
+            ig->patchCount = scan[g].patchCount;
+
+            // Tri alphabetique des dossiers de chaque jeu
+            for (int i = 0; i < ig->folderCount - 1; i++) {
+                for (int j = i + 1; j < ig->folderCount; j++) {
+                    if (strcmp(scan[g].folders[i], scan[g].folders[j]) > 0) {
+                        char tmp[NEXTENDO_MAX_FOLDER_NAME];
+                        strcpy(tmp, scan[g].folders[i]);
+                        strcpy(scan[g].folders[i], scan[g].folders[j]);
+                        strcpy(scan[g].folders[j], tmp);
+                    }
+                }
+            }
+            for (int i = 0; i < ig->folderCount; i++) {
+                strncpy(ig->folders[i], scan[g].folders[i], NEXTENDO_MAX_FOLDER_NAME - 1);
+                ig->folders[i][NEXTENDO_MAX_FOLDER_NAME - 1] = '\0';
+            }
+        }
+    }
+
+    // 3. Scanner RomFS pour connaitre le total de patchs de jeu disponibles
+    DIR *dRomfs = opendir("romfs:/sd/atmosphere/exefs_patches");
+    if (dRomfs) {
+        struct dirent *e;
+        while ((e = readdir(dRomfs)) != NULL) {
+            if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+            char path[FS_MAX_PATH];
+            snprintf(path, sizeof(path), "romfs:/sd/atmosphere/exefs_patches/%s", e->d_name);
+            struct stat st;
+            if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+
+            for (size_t g = 0; g < GAME_PATCH_DEFS_COUNT; g++) {
+                if (prefixMatches(e->d_name, s_gamePatchDefs[g].prefix)) {
+                    out->inRomfs += countIps(path);
+                    break;
+                }
+            }
+        }
+        closedir(dRomfs);
+    }
+
     // dns.mitm coupe = la console parle au VRAI Nintendo, et aucun correctif n'y peut rien.
     out->dnsMitmOn = fileHas(NEXTENDO_SETTINGS_INI, "enable_dns_mitm = u8!0x1");
     out->hostsOk   = (nextendo_current_mode() == 0);
