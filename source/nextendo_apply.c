@@ -801,6 +801,7 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Overcooked 2",                   "overcooked2*" },
     { "Nintendo Classics: Nintendo 64", "nson64*" },
     { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
+    { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
 };
 #define GAME_PATCH_DEFS_COUNT (sizeof(s_gamePatchDefs) / sizeof(s_gamePatchDefs[0]))
 
