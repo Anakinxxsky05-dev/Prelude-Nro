@@ -615,7 +615,9 @@
 // build 72 : v3.5.7. Minecraft Dungeons II 1.1.1.0: listen-host ExeFS patch
 //           (dungeons2-nextendo/9E9D887D59F7F7DB176B35E3379258B9.ips, same bytes Citron applies
 //           built-in) + PlayFab/Minecraft/Xbox Live hosts lines.
-#define NEXTENDO_BUILD 72
+
+// build 73 : v3.5.8. Minecraft Dungeons II patch updated.
+#define NEXTENDO_BUILD 73
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -631,7 +633,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 7
+#define NEXTENDO_VERSION_PATCH 8
 #endif
 
 typedef struct {
