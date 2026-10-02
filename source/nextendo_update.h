@@ -617,7 +617,10 @@
 //           built-in) + PlayFab/Minecraft/Xbox Live hosts lines.
 
 // build 73 : v3.5.8. Minecraft Dungeons II patch updated.
-#define NEXTENDO_BUILD 73
+
+// build 74 : v3.5.9. Minecraft Dungeons II: the host keeps its game port open toward the
+//           Nextendo relay, so players on other networks can join.
+#define NEXTENDO_BUILD 74
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -633,7 +636,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 8
+#define NEXTENDO_VERSION_PATCH 9
 #endif
 
 typedef struct {
