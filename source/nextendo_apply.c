@@ -209,6 +209,19 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s demonware.net\n", ip);   EMIT_H(line);
     snprintf(line, sizeof(line), "%s *.demonware.net\n", ip); EMIT_H(line);
 
+    // --- Minecraft Dungeons II: PlayFab (title 83156), Minecraft services, and the Xbox Live
+    // sign-in (XAL) the game requires before Play Online; our server plays Microsoft's part.
+    // Citron redirects Xbox Live only while Dungeons II runs, but Atmosphere's hosts file is
+    // global, so here it covers every game while Nextendo mode is on (Minecraft Bedrock loses
+    // its real Xbox sign-in).
+    EMIT_H("\n# --- Minecraft Dungeons II (PlayFab, Minecraft, Xbox Live) ---\n");
+    snprintf(line, sizeof(line), "%s 83156.playfabapi.com\n", ip);          EMIT_H(line);
+    snprintf(line, sizeof(line), "%s vex.minecraftservices.com\n", ip);     EMIT_H(line);
+    snprintf(line, sizeof(line), "%s s2s-vex.minecraftservices.com\n", ip); EMIT_H(line);
+    snprintf(line, sizeof(line), "%s xboxlive.com\n", ip);                  EMIT_H(line);
+    snprintf(line, sizeof(line), "%s *.xboxlive.com\n", ip);                EMIT_H(line);
+    snprintf(line, sizeof(line), "%s login.live.com\n", ip);                EMIT_H(line);
+
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
 
@@ -804,6 +817,7 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Nintendo Classics: Nintendo 64", "nson64*" },
     { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
     { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
+    { "Minecraft Dungeons II",          "dungeons2*" },
 };
 #define GAME_PATCH_DEFS_COUNT (sizeof(s_gamePatchDefs) / sizeof(s_gamePatchDefs[0]))
 
