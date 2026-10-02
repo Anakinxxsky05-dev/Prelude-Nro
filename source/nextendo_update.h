@@ -611,7 +611,11 @@
 //           exigent ultimate/arcropolis/resources/, absent jusqu'ici) + garde de firmware
 //           sur le fallback de liaison de compte : plus de boot2.flag sur HOS >= 23.0.0,
 //           ou le network_mitm du pack CFW abort au demarrage (issue #42).
-#define NEXTENDO_BUILD 71
+
+// build 72 : v3.5.7. Minecraft Dungeons II 1.1.1.0: listen-host ExeFS patch
+//           (dungeons2-nextendo/9E9D887D59F7F7DB176B35E3379258B9.ips, same bytes Citron applies
+//           built-in) + PlayFab/Minecraft/Xbox Live hosts lines.
+#define NEXTENDO_BUILD 72
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -627,7 +631,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 6
+#define NEXTENDO_VERSION_PATCH 7
 #endif
 
 typedef struct {
