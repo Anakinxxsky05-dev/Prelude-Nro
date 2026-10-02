@@ -623,7 +623,10 @@
 
 // build 75 : v3.5.10. Minecraft Dungeons II: the host's relay ping now runs every frame (v3.5.9's
 //           fired once), confirmed with a join through the relay.
-#define NEXTENDO_BUILD 75
+
+// build 76 : v3.5.11. Minecraft Dungeons II: a console host no longer crashes (2168-0002) when
+//           a player joins.
+#define NEXTENDO_BUILD 76
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -639,7 +642,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 10
+#define NEXTENDO_VERSION_PATCH 11
 #endif
 
 typedef struct {
