@@ -86,6 +86,8 @@ bool nextendo_ssbu_oc_set(bool enabled);
 // Para consolas con PRODINFO en blanco (emuMMC) que reciben error 0x0000167B en ssl:s.
 bool nextendo_account_link_is_installed(void);
 bool nextendo_account_link_is_recommended(void);
+// Vrai si le firmware rend le fallback inutilisable (HOS >= 23.0.0, issue #42).
+bool nextendo_account_link_fw_blocked(void);
 bool nextendo_account_link_install(void);
 void nextendo_account_link_remove(void);
 

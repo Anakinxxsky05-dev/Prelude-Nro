@@ -1486,7 +1486,51 @@ bool nextendo_account_link_is_recommended(void) {
     return false;
 }
 
+// --- Garde de firmware du fallback de liaison de compte (issue #42) --------------------
+//
+// LE BINAIRE N'EST PAS DANS CE DEPOT, MAIS ON LE LIVRE QUAND MEME. romfs:/account_link/
+// ne porte que mitm.lst et boot2.flag ; l'exefs.nsp du sysmodule network_mitm
+// (4200000000000666) est recupere PAR LA CI au moment de la compilation, depuis
+// W-874/network_mitm (tag v2.0.0-account-link-fallback). Un build local n'a donc pas le
+// meme contenu qu'une release : ne jamais publier un .nro compile a la main.
+//
+// Sur HOS 23.0.0 ce binaire fait std::abort (0xFFE) au demarrage et la console ne boote
+// plus du tout — deux rapports concordants sur #42. Retirer le dossier depuis un PC est
+// le seul moyen de repartir, ce qui veut dire que la panne survit a toute mise a jour de
+// Prelude : le joueur ne peut meme plus lancer le .nro qui la corrigerait.
+//
+// On ne compile pas ce binaire, donc on ne peut pas corriger l'abort. Ce qu'on peut faire,
+// c'est ne plus poser le boot2.flag : « fonction indisponible » au lieu d'une console
+// morte. Le correctif de fond appartient a W-874.
+//
+// FIRMWARE INCONNU -> ON N'EMPECHE RIEN. Si la version ne se lit pas, on garde l'ancien
+// comportement : bloquer a l'aveugle priverait du fallback des consoles qui en ont besoin
+// (PRODINFO blanc, erreur 0x167B sur ssl:s) pour un doute qu'on n'a pas mesure.
+static bool accountLinkFirmwareBloque(void) {
+    // hosversionGet() vaut 0 tant que libnx ne l'a pas renseigne : on retombe alors sur
+    // setsys plutot que de conclure a l'aveugle.
+    if (hosversionGet() != 0) return hosversionAtLeast(23, 0, 0);
+
+    u32 maj = 0;
+    SetSysFirmwareVersion fw;
+    if (R_SUCCEEDED(setsysInitialize())) {
+        if (R_SUCCEEDED(setsysGetFirmwareVersion(&fw))) maj = (u32)fw.major;
+        setsysExit();
+    }
+    if (maj == 0) return false;
+    return maj >= 23;
+}
+
+bool nextendo_account_link_fw_blocked(void) { return accountLinkFirmwareBloque(); }
+
 bool nextendo_account_link_install(void) {
+    if (accountLinkFirmwareBloque()) {
+        // Nettoyer un flag pose par un build anterieur : sans ca, qui a active le
+        // fallback avant de passer en 23.0.0 reste bloque au demarrage.
+        nextendo_account_link_remove();
+        nextendo_trace("24g account_link REFUSE : HOS >= 23.0.0 (issue #42)");
+        return false;
+    }
     ensureDir(ACCOUNT_LINK_FLAGS);
     bool ok = copyTreeRomfs(ACCOUNT_LINK_ROMFS, "sdmc:");
     FILE *bf = fopen(ACCOUNT_LINK_BOOTFLAG, "wb");

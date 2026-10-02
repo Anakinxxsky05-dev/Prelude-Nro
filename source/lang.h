@@ -191,6 +191,7 @@ typedef enum {
     STR_ACCOUNT_WARN_L2,              // pop-up ligne 2
     STR_ACCOUNT_TOAST_ON,             // toast active
     STR_ACCOUNT_TOAST_OFF,            // toast desactive
+    STR_ACCOUNT_FW_BLOCKED,           // HOS >= 23.0.0 : network_mitm plante au boot (#42)
     STR_RAIL_LANG,                    // "Language"    (R)
 
     // --- Section Splatoon 3 : etat des correctifs ---

@@ -639,6 +639,11 @@ static const char *s_strings[STR_COUNT][5] = {
                                  "Fallback de vinculacao desativado",
                                  "Fallback de liaison desactive",
                                  "账号关联回退补丁已停用" },
+    [STR_ACCOUNT_FW_BLOCKED] = { "Not available on firmware 23.0.0 yet",
+                                 "Aun no disponible en el firmware 23.0.0",
+                                 "Ainda nao disponivel no firmware 23.0.0",
+                                 "Pas encore disponible sur le firmware 23.0.0",
+                                 "暂不支持系统版本 23.0.0" },
     [STR_RAIL_LANG]   = { "Language",   "Idioma",     "Idioma",     "Langue",     "语言" },
 
     [STR_S3_TITLE]    = { "Game Patches",

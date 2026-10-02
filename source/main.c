@@ -444,7 +444,7 @@ int main(int argc, char **argv) {
                                     accountInstalled = nextendo_account_link_install();
                                     snprintf(status, sizeof(status), "%s",
                                              lang_str(accountInstalled ? STR_ACCOUNT_TOAST_ON
-                                                                       : STR_STATUS_SD_ERROR));
+                                                                       : nextendo_account_link_fw_blocked() ? STR_ACCOUNT_FW_BLOCKED : STR_STATUS_SD_ERROR));
                                 } else {
                                     screen = SCREEN_ACCOUNT_WARN;
                                 }
@@ -568,7 +568,7 @@ int main(int argc, char **argv) {
             if (k & HidNpadButton_A) {
                 accountInstalled = nextendo_account_link_install();
                 snprintf(status, sizeof(status), "%s",
-                         lang_str(accountInstalled ? STR_ACCOUNT_TOAST_ON : STR_STATUS_SD_ERROR));
+                         lang_str(accountInstalled ? STR_ACCOUNT_TOAST_ON : nextendo_account_link_fw_blocked() ? STR_ACCOUNT_FW_BLOCKED : STR_STATUS_SD_ERROR));
                 screen = SCREEN_PICKER;
             } else if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
                 screen = SCREEN_PICKER;

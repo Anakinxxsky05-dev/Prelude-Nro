@@ -607,7 +607,11 @@
 //           Section dediee dans le rail, detection de l'etat de la console, confirmation modale
 //           sur certificats d'usine valides, et sortie des artefacts en nextendo.nro.
 
-#define NEXTENDO_BUILD 70
+// build 71 : v3.5.6. ARCropolis v4.1.1 dans le bundle SSBU (les menus natifs de la 4.1.0
+//           exigent ultimate/arcropolis/resources/, absent jusqu'ici) + garde de firmware
+//           sur le fallback de liaison de compte : plus de boot2.flag sur HOS >= 23.0.0,
+//           ou le network_mitm du pack CFW abort au demarrage (issue #42).
+#define NEXTENDO_BUILD 71
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -623,7 +627,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 5
+#define NEXTENDO_VERSION_PATCH 6
 #endif
 
 typedef struct {
