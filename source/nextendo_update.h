@@ -620,7 +620,10 @@
 
 // build 74 : v3.5.9. Minecraft Dungeons II: the host keeps its game port open toward the
 //           Nextendo relay, so players on other networks can join.
-#define NEXTENDO_BUILD 74
+
+// build 75 : v3.5.10. Minecraft Dungeons II: the host's relay ping now runs every frame (v3.5.9's
+//           fired once), confirmed with a join through the relay.
+#define NEXTENDO_BUILD 75
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -636,7 +639,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 9
+#define NEXTENDO_VERSION_PATCH 10
 #endif
 
 typedef struct {
