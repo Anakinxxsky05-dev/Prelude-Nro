@@ -626,7 +626,7 @@
 
 // build 76 : v3.5.11. Minecraft Dungeons II: a console host no longer crashes (2168-0002) when
 //           a player joins.
-#define NEXTENDO_BUILD 76
+#define NEXTENDO_BUILD 77
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -642,7 +642,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 11
+#define NEXTENDO_VERSION_PATCH 12
 #endif
 
 typedef struct {

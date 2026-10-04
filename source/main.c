@@ -26,6 +26,8 @@
 #include "ui.h"
 #include "audio.h"
 #include "nextendo_apply.h"
+#include "nextendo_news.h"
+#include <sys/stat.h>
 #include "nextendo_config.h"
 #include <stdlib.h>
 #include "nextendo_bcat.h"
@@ -48,6 +50,7 @@ enum {
     SCREEN_FLAG_MENU, SCREEN_FLAG_PROGRESS, SCREEN_FLAG_RESULT,
     SCREEN_BACKUP_ASK, SCREEN_USEBAK_ASK,
     SCREEN_MODS_ASK, SCREEN_ACCOUNT_WARN,
+    SCREEN_NEWS_REBOOT,
     // Smash et Langue ne sont plus des ecrans : leur contenu vit dans le
     // panneau du rail. Ne restent modaux que confirmation / progression /
     // resultat, et la liste de 110 pays, trop longue pour un panneau.
@@ -236,7 +239,24 @@ int main(int argc, char **argv) {
     //
     // On ne touche RIEN en mode Nintendo : ce mode retire volontairement la pile de
     // certificats, et la reposer en douce serait une faille, pas un confort.
+    // Actualites du menu HOME : un Prelude mis a jour en restant en mode Nextendo pose ici
+    // pour la premiere fois le patch de signature des actualites. Comme a l'activation du mode,
+    // on efface alors les actualites de Nintendo deja telechargees, puis on demande de
+    // redemarrer : le patch du module bcat ne se charge qu'au demarrage.
+    // stat() et non access() : access() de la newlib devkitPro repond 0 meme pour un chemin absent.
+    struct stat stNews;
+    bool newsPatchAvant = current == CHOICE_NEXTENDO &&
+        stat("sdmc:/atmosphere/exefs_patches/nextendo_bcat_signature", &stNews) == 0;
     if (current == CHOICE_NEXTENDO) nextendo_provision_all_public();
+    if (current == CHOICE_NEXTENDO)
+        nextendo_trace(newsPatchAvant ? "news: patch deja sur la carte, rien a purger"
+                                      : "news: patch absent avant ce lancement");
+    bool newsRedemarrer = current == CHOICE_NEXTENDO && !newsPatchAvant &&
+        nextendo_news_patch_for_console() && nextendo_news_purge("mise a jour");
+    // Patch deja charge au demarrage : on redemande les abonnements d'office a chaque lancement
+    // (sans effet s'ils existent deja, indispensable s'ils ont ete perdus).
+    if (current == CHOICE_NEXTENDO && newsPatchAvant && nextendo_news_patch_for_console())
+        nextendo_news_resubscribe();
 
     static NextendoS3Status s3;
     nextendo_s3_status(&s3);
@@ -244,7 +264,7 @@ int main(int argc, char **argv) {
     int  railSel = RAIL_MODE;   // section du rail
     int  paneSel = 0;           // ligne du panneau
     bool paneFocus = false;     // false = les fleches agissent sur le rail
-    int  screen = SCREEN_PICKER;
+    int  screen = newsRedemarrer ? SCREEN_NEWS_REBOOT : SCREEN_PICKER;
     // UNE SEULE FOIS, au tout premier lancement : on propose de sauvegarder les hosts
     // dns.mitm que l'utilisateur avait AVANT nous. C'est la SEULE occasion de le faire —
     // des qu'un mode est applique, les fichiers d'origine sont ecrases et il n'y a plus
@@ -563,6 +583,16 @@ int main(int argc, char **argv) {
                 ui_draw_question(lang_str(STR_MODS_TITLE),
                                  lang_str(STR_MODS_BODY1),
                                  lang_str(STR_MODS_BODY2));
+
+        } else if (screen == SCREEN_NEWS_REBOOT) {
+            // Redemarrage obligatoire : le patch du module bcat ne se charge qu'au demarrage.
+            ui_draw_result(lang_str(STR_NEWS_TITLE), lang_str(STR_NEWS_CLEANED), true);
+            if (k & HidNpadButton_A) {
+                audio_exit();
+                nextendo_reboot();
+                snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_REBOOT_FAIL));
+                screen = SCREEN_PICKER;
+            }
 
         } else if (screen == SCREEN_ACCOUNT_WARN) {
             if (k & HidNpadButton_A) {

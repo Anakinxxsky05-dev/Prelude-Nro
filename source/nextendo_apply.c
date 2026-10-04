@@ -32,6 +32,7 @@
 #include <switch.h>
 
 #include "nextendo_apply.h"
+#include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
 #include "nextendo_net.h"
@@ -954,6 +955,10 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
         nextendo_trace("30 WARN: provision_all a echoue -> annulation");
         return false;
     }
+    // Actualites du menu HOME : seules celles de Nextendo doivent rester. On efface donc ce que
+    // la console a telecharge chez Nintendo, mais seulement si le patch de signature couvre son
+    // firmware ; sans lui nos actualites ne s'afficheraient pas et on garderait une liste vide.
+    if (nextendo_news_patch_for_console()) nextendo_news_purge("nextendo");
     char *hosts = nextendo_hosts_build(ip);
     if (!hosts) return false;
     // Le default.txt de l'utilisateur est sauvegarde AVANT d'etre ecrase ; apply_nintendo
@@ -1043,6 +1048,10 @@ bool nextendo_apply_nintendo(void) {
         return false;
     }
     nextendo_trace("24 removeTreeRomfs ok");
+    // Actualites du menu HOME : on efface celles de Nextendo, celles de Nintendo se
+    // retelechargent au demarrage suivant (le patch de signature vient d'etre retire avec le
+    // reste de romfs:/sd).
+    nextendo_news_purge("nintendo");
     removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:"); // SSBU online-deluxe mod
     removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:"); // SMB35 batailles speciales
     nextendo_account_link_remove();                    // sysmodule network_mitm v2 fallback

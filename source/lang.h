@@ -262,6 +262,8 @@ typedef enum {
     STR_STATUS_SCHEDULE_S3_OK_DESC,  // "Old schedule replaced. Relaunch Splatoon 3 to apply."
     STR_STATUS_MOUNT_FAIL_DESC_S3,   // "Launch Splatoon 3 once, then try again."
 
+    STR_NEWS_TITLE,                   // ecran apres pose du patch des actualites
+    STR_NEWS_CLEANED,
     STR_COUNT
 } StringID;
 
