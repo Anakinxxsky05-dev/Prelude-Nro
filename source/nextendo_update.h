@@ -630,7 +630,9 @@
 // build 77 : v3.5.12. Nextendo news in the HOME Menu (v3.5.13 kept 77: UCH hosts).
 
 // build 78 : v3.5.14. Nintendo Switch Sports: explicit NEX host for g21f19300.
-#define NEXTENDO_BUILD 78
+
+// build 79 : v3.5.15. Dragon Ball FighterZ: Bandai API host dbf.channel.or.jp + NEX host g21b61a00.
+#define NEXTENDO_BUILD 79
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -646,7 +648,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 14
+#define NEXTENDO_VERSION_PATCH 15
 #endif
 
 typedef struct {
