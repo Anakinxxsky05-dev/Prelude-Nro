@@ -632,7 +632,9 @@
 // build 78 : v3.5.14. Nintendo Switch Sports: explicit NEX host for g21f19300.
 
 // build 79 : v3.5.15. Dragon Ball FighterZ: Bandai API host dbf.channel.or.jp + NEX host g21b61a00.
-#define NEXTENDO_BUILD 79
+
+// build 80 : v3.5.16. Monster Hunter Rise 16.0.2: NPLN certificate/peer patches + tenant host.
+#define NEXTENDO_BUILD 80
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -648,7 +650,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 15
+#define NEXTENDO_VERSION_PATCH 16
 #endif
 
 typedef struct {
