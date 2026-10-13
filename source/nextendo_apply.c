@@ -207,6 +207,16 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s bcat-data-lp1.cdn.nintendo.net\n", ip);   EMIT_H(line);
     snprintf(line, sizeof(line), "%s bcat-topics-lp1.cdn.nintendo.net\n", ip); EMIT_H(line);
 
+    // --- Browser version check (bvc) : « System update required » dans eShop / NSO / lien de compte ---
+    // La console fait HEAD https://bvc-hac-lp1.cdn.nintendo.net/<firmware-avec-tirets> avant d'ouvrir
+    // un web applet. Nintendo y publie un fichier VIDE par version qui DOIT se mettre a jour :
+    // 200 = « version vulnerable, mets a jour », 404 = « version correcte ». Le 13/10/2026 (01:00 UTC)
+    // Nintendo a ajoute 22-5-0 et 23-0-0 a cette liste, et le popup est apparu le meme jour.
+    // Sans cette ligne l'hote n'est couvert par aucun joker (pas de *.cdn.nintendo.net, voir plus haut)
+    // et la console interrogeait le VRAI Nintendo. Notre nx-conntest repond 404 a cet hote precis
+    // (le certificat conntest couvre *.cdn.nintendo.net). NE PAS ajouter *.cdn.nintendo.net.
+    snprintf(line, sizeof(line), "%s bvc-hac-lp1.cdn.nintendo.net\n", ip);    EMIT_H(line);
+
     // --- Demonware (Crash Team Racing: Nitro-Fueled, Diablo III) ---
     // Ces jeux utilisent l'infrastructure Demonware (Activision/Blizzard) et non les serveurs Nintendo.
     EMIT_H("\n# --- Redirection vers le serveur prive de Demonware (CTR, Diablo III) ---\n");

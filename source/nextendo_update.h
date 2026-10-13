@@ -634,7 +634,10 @@
 // build 79 : v3.5.15. Dragon Ball FighterZ: Bandai API host dbf.channel.or.jp + NEX host g21b61a00.
 
 // build 80 : v3.5.16. Monster Hunter Rise 16.0.2: NPLN certificate/peer patches + tenant host.
-#define NEXTENDO_BUILD 80
+
+// build 81 : v3.5.17. Fixes the "System update required" popup on firmware 22.5.0: hosts now redirect
+//           bvc-hac-lp1.cdn.nintendo.net (browser version check) to the Nextendo server, which answers 404.
+#define NEXTENDO_BUILD 81
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -650,7 +653,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 16
+#define NEXTENDO_VERSION_PATCH 17
 #endif
 
 typedef struct {
