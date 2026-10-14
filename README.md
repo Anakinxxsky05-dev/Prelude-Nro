@@ -133,3 +133,9 @@ Required Notice: Copyright 2026 Nextendo Network
 
 This project is not affiliated with, endorsed by, or connected to Nintendo. "Nintendo" and
 "Nintendo Switch" are trademarks of Nintendo. Use it on hardware you own.
+
+### v3.5.18
+
+- Peace Walker 1.3.0 direct startup selects English when the US title has no valid launcher language; Japanese and explicit language choices are preserved. The bundled IPS32 offsets include the 0x100-byte NSO header.
+- Includes the same Peace Walker peer-name patches as Citron and Ryujinx.
+- Repairs update checks after the GitHub repository rename by using the stable repository API ID. Users whose old updater cannot check for updates must install this release manually once.

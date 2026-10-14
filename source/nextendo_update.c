@@ -12,7 +12,7 @@
 
 // ============================================================
 //  Nextendo .nro -- auto-update via GitHub Releases API.
-//  Checks https://api.github.com/repos/NextendoNetwork/Prelude-Nro/releases/latest
+//  Checks https://api.github.com/repositories/1292515097/releases/latest
 //  for the latest version tag, compares semver with NEXTENDO_VERSION_*,
 //  and downloads the .nro asset if a newer version is available.
 // ============================================================
@@ -31,7 +31,7 @@
 
 // GitHub API for latest release
 #define GH_API_HOST  "api.github.com"
-#define GH_API_PATH  "/repos/NextendoNetwork/Prelude-Nro/releases/latest"
+#define GH_API_PATH  "/repositories/1292515097/releases/latest"
 #define GH_API_PORT  443
 
 // --- Chemin du .nro : celui qu'on EXECUTE, pas un chemin devine. ---
