@@ -144,6 +144,7 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s g2df33d01-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Splatoon 2
     snprintf(line, sizeof(line), "%s g21f19300-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Switch Sports
     snprintf(line, sizeof(line), "%s g21b61a00-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Dragon Ball FighterZ
+    snprintf(line, sizeof(line), "%s g23cb8900-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Friday the 13th
     // --- Splatoon 3 / NPLN ---
     // Splatoon 3 n'utilise PAS NEX : il parle NPLN (gRPC sur HTTP/2), donc aucun
     // hote g2*.s.n. Les quatre premiers finissent par srv.nintendo.net et sont deja
@@ -244,6 +245,9 @@ char *nextendo_hosts_build(const char *ip) {
 
     EMIT_H("\n# --- Dragon Ball FighterZ (API Bandai Namco, avant tout trafic NEX) ---\n");
     snprintf(line, sizeof(line), "%s dbf.channel.or.jp\n", ip);                 EMIT_H(line);
+
+    EMIT_H("\n# --- Friday the 13th: The Game (backend REST IllFonic, apres le Register NEX) ---\n");
+    snprintf(line, sizeof(line), "%s nswitch.f13.illfonic.com\n", ip);          EMIT_H(line);
 
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);

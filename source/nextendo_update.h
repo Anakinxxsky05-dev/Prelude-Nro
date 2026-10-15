@@ -638,7 +638,8 @@
 // build 81 : v3.5.17. Fixes the "System update required" popup on firmware 22.5.0: hosts now redirect
 //           bvc-hac-lp1.cdn.nintendo.net (browser version check) to the Nextendo server, which answers 404.
 // build 82: region-aware Peace Walker startup and GitHub update endpoint repair.
-#define NEXTENDO_BUILD 82
+// build 83: v3.5.19. Friday the 13th: The Game online (IllFonic backend + NEX lobby hosts).
+#define NEXTENDO_BUILD 83
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -654,7 +655,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 18
+#define NEXTENDO_VERSION_PATCH 19
 #endif
 
 typedef struct {
