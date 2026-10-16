@@ -640,7 +640,9 @@
 // build 82: region-aware Peace Walker startup and GitHub update endpoint repair.
 // build 83: v3.5.19. Friday the 13th: The Game online (IllFonic backend + NEX lobby hosts).
 // build 84: v3.5.20. Stardew Valley 1.6.15.13: ExeFS patches (stardew-nextendo/).
-#define NEXTENDO_BUILD 84
+// build 85: v4.0.0. Firmware 23.0.1: disable_ca_verification patch for the new ssl build id
+//           (A60F1784...). Without it the console rejects the Nextendo certificate (2123-0308).
+#define NEXTENDO_BUILD 85
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -650,13 +652,13 @@
 // editeur ou a une compilation hors Makefile — et surtout, elles ne peuvent plus diverger
 // en silence de la version reellement publiee.
 #ifndef NEXTENDO_VERSION_MAJOR
-#define NEXTENDO_VERSION_MAJOR 3
+#define NEXTENDO_VERSION_MAJOR 4
 #endif
 #ifndef NEXTENDO_VERSION_MINOR
-#define NEXTENDO_VERSION_MINOR 5
+#define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 20
+#define NEXTENDO_VERSION_PATCH 0
 #endif
 
 typedef struct {
