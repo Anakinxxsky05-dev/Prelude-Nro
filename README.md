@@ -62,7 +62,8 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
 - **Friday the 13th: The Game**: IllFonic backend redirection (`nswitch.f13.illfonic.com`) and the NEX
   lobby host. No ExeFS patches required.
 - **Pokémon Sword / Shield** (1.3.2): the NEX host for Y-Comm (link trades, link battles, Max Raid
-  Battles, Surprise Trade and stamps). No ExeFS patches required.
+  Battles, Surprise Trade and stamps), plus ExeFS patches (`pkmnswsh-nextendo/`) so connecting from
+  Y-Comm no longer crashes on console.
 - **Monster Hunter Rise** (16.0.2): ExeFS patches (certificate + peer name, `mhrise-nextendo/`) and
   the NPLN tenant host, for online lobbies on the Nextendo server.
 - **Stardew Valley** (1.6.15.13): ExeFS patches (certificate check and peer-name check, `stardew-nextendo/`)

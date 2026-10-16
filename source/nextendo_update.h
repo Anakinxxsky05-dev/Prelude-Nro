@@ -646,7 +646,9 @@
 // build 87: v4.0.2. Firmware 23.0.1: nextendo_bcat_signature patch for the new bcat build id
 //           (84EF6747...). The 22.5.0 one (6D9772A7...) stays: Atmosphere applies only the file whose
 //           name matches the installed build id. Without it, "Find Channels" fails on 23.0.1.
-#define NEXTENDO_BUILD 87
+// build 88: v4.0.3. Pokemon Sword/Shield 1.3.2: NSO license-kind stopgap (pkmnswsh-nextendo/), the
+//           game aborted with 2124-0400 when pressing + in Y-Comm on console.
+#define NEXTENDO_BUILD 88
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -662,7 +664,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 2
+#define NEXTENDO_VERSION_PATCH 3
 #endif
 
 typedef struct {

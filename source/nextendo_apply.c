@@ -845,6 +845,7 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Nintendo Classics: Nintendo 64", "nson64*" },
     { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
     { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
+    { "Pokemon Sword & Shield",         "pkmnswsh*" },
     { "Minecraft Dungeons II",          "dungeons2*" },
     { "Monster Hunter Rise",            "mhrise*" },
     { "Stardew Valley",                 "stardew*" },
