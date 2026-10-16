@@ -261,6 +261,8 @@ typedef enum {
     STR_STATUS_DOWNLOAD_SCHEDULE_S3, // "Downloading and installing Splatoon 3 schedule..."
     STR_STATUS_SCHEDULE_S3_OK_DESC,  // "Old schedule replaced. Relaunch Splatoon 3 to apply."
     STR_STATUS_MOUNT_FAIL_DESC_S3,   // "Launch Splatoon 3 once, then try again."
+    STR_BADGE_DISABLED,              // "Disabled" / "Desactivado"
+    STR_S3_BCAT_DISABLED_NOTICE,     // Notification when clicking disabled S3 BCAT button
 
     STR_NEWS_TITLE,                   // ecran apres pose du patch des actualites
     STR_NEWS_CLEANED,

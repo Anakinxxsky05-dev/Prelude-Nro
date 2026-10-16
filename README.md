@@ -63,6 +63,8 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   lobby host. No ExeFS patches required.
 - **Monster Hunter Rise** (16.0.2): ExeFS patches (certificate + peer name, `mhrise-nextendo/`) and
   the NPLN tenant host, for online lobbies on the Nextendo server.
+- **Stardew Valley** (1.6.15.13): ExeFS patches (certificate check and peer-name check, `stardew-nextendo/`)
+  deployed automatically under Nextendo mode for online multiplayer.
 - **Nintendo Account Link fallback**: targeted `ssl:s` Client-PKI fallback (`network_mitm` v2)
   for blanked PRODINFO / emuMMC consoles, allowing account linking on Nextendo without error `0x167B`.
 - Explicit per-game NEX entries for Mario Tennis Aces, ARMS, Luigi's Mansion 3, Animal Crossing,
