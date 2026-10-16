@@ -639,7 +639,8 @@
 //           bvc-hac-lp1.cdn.nintendo.net (browser version check) to the Nextendo server, which answers 404.
 // build 82: region-aware Peace Walker startup and GitHub update endpoint repair.
 // build 83: v3.5.19. Friday the 13th: The Game online (IllFonic backend + NEX lobby hosts).
-#define NEXTENDO_BUILD 83
+// build 84: v3.5.20. Stardew Valley 1.6.15.13: ExeFS patches (stardew-nextendo/).
+#define NEXTENDO_BUILD 84
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -655,7 +656,7 @@
 #define NEXTENDO_VERSION_MINOR 5
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 19
+#define NEXTENDO_VERSION_PATCH 20
 #endif
 
 typedef struct {
