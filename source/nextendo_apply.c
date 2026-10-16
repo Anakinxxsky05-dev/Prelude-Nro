@@ -846,6 +846,7 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
     { "Minecraft Dungeons II",          "dungeons2*" },
     { "Monster Hunter Rise",            "mhrise*" },
+    { "Stardew Valley",                 "stardew*" },
 };
 #define GAME_PATCH_DEFS_COUNT (sizeof(s_gamePatchDefs) / sizeof(s_gamePatchDefs[0]))
 

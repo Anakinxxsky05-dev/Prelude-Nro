@@ -534,7 +534,9 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
 
     } else if (railSel == RAIL_S2) {
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_ITEM_S2), lang_str(STR_DESC_S2));
+        int rowY = y;
         y = chromeRow(b, st, x, y, w, FOC(1), lang_str(STR_ITEM_S3), lang_str(STR_DESC_S3));
+        chromeBadge(b, st, x, rowY, w, lang_str(STR_BADGE_DISABLED), theme_sep(), theme_text2());
     } else if (railSel == RAIL_SMB35) {
         y = chromeRow(b, st, x, y, w, FOC(0), lang_str(STR_RAIL_SMB35), lang_str(STR_DESC_SMB35));
         // Seconde ligne : les batailles speciales. L'avertissement est SOUS le bouton et

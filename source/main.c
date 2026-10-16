@@ -427,8 +427,12 @@ int main(int argc, char **argv) {
                             }
                             break;
                         case RAIL_S2:
-                            g_bcatTarget = (paneSel == 1) ? BCAT_TARGET_S3 : BCAT_TARGET_S2;
-                            screen = SCREEN_S2_INFO;
+                            if (paneSel == 0) {
+                                g_bcatTarget = BCAT_TARGET_S2;
+                                screen = SCREEN_S2_INFO;
+                            } else {
+                                snprintf(status, sizeof(status), "%s", lang_str(STR_S3_BCAT_DISABLED_NOTICE));
+                            }
                             break;
                         case RAIL_SMB35:
                             if (paneSel == 0) {
