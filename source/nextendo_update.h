@@ -642,7 +642,8 @@
 // build 84: v3.5.20. Stardew Valley 1.6.15.13: ExeFS patches (stardew-nextendo/).
 // build 85: v4.0.0. Firmware 23.0.1: disable_ca_verification patch for the new ssl build id
 //           (A60F1784...). Without it the console rejects the Nextendo certificate (2123-0308).
-#define NEXTENDO_BUILD 85
+// build 86: v4.0.1. Pokemon Sword/Shield 1.3.2 online: explicit NEX host g25b8e100.
+#define NEXTENDO_BUILD 86
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -658,7 +659,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 0
+#define NEXTENDO_VERSION_PATCH 1
 #endif
 
 typedef struct {

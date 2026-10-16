@@ -145,6 +145,7 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s g21f19300-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Switch Sports
     snprintf(line, sizeof(line), "%s g21b61a00-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Dragon Ball FighterZ
     snprintf(line, sizeof(line), "%s g23cb8900-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Friday the 13th
+    snprintf(line, sizeof(line), "%s g25b8e100-lp1.s.n.srv.nintendo.net\n", ip); EMIT_H(line); // Pokemon Sword/Shield
     // --- Splatoon 3 / NPLN ---
     // Splatoon 3 n'utilise PAS NEX : il parle NPLN (gRPC sur HTTP/2), donc aucun
     // hote g2*.s.n. Les quatre premiers finissent par srv.nintendo.net et sont deja

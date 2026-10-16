@@ -61,6 +61,8 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   lobby host. No ExeFS patches required.
 - **Friday the 13th: The Game**: IllFonic backend redirection (`nswitch.f13.illfonic.com`) and the NEX
   lobby host. No ExeFS patches required.
+- **Pokémon Sword / Shield** (1.3.2): the NEX host for Y-Comm (link trades, link battles, Max Raid
+  Battles, Surprise Trade and stamps). No ExeFS patches required.
 - **Monster Hunter Rise** (16.0.2): ExeFS patches (certificate + peer name, `mhrise-nextendo/`) and
   the NPLN tenant host, for online lobbies on the Nextendo server.
 - **Stardew Valley** (1.6.15.13): ExeFS patches (certificate check and peer-name check, `stardew-nextendo/`)
@@ -68,7 +70,8 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
 - **Nintendo Account Link fallback**: targeted `ssl:s` Client-PKI fallback (`network_mitm` v2)
   for blanked PRODINFO / emuMMC consoles, allowing account linking on Nextendo without error `0x167B`.
 - Explicit per-game NEX entries for Mario Tennis Aces, ARMS, Luigi's Mansion 3, Animal Crossing,
-  Strikers, Nintendo Switch Sports, Dragon Ball FighterZ and Friday the 13th, on top of the `g2*` wildcard.
+  Strikers, Nintendo Switch Sports, Dragon Ball FighterZ, Friday the 13th and Pokémon Sword/Shield, on top
+  of the `g2*` wildcard.
 
 ### Privacy & reversibility
 
