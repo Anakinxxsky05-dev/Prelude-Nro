@@ -266,6 +266,30 @@ typedef enum {
 
     STR_NEWS_TITLE,                   // ecran apres pose du patch des actualites
     STR_NEWS_CLEANED,
+
+    // --- Mode CAPTURE (cache : ZL+ZR+Moins sur la section Mode) ---
+    STR_DESC_CAPTURE,                 // ligne du panneau
+    STR_CAPTURE_UNLOCKED,             // statut apres la combinaison
+    STR_CAPTURE_WARN_TITLE,           // ecran d'avertissement
+    STR_CAPTURE_WARN_L1,
+    STR_CAPTURE_WARN_L2,
+    STR_CAPTURE_WARN_L3,
+    STR_CAPTURE_WARN_L4,
+    STR_CAPTURE_HOLD_X,               // "Hold X for 3 s to confirm"
+    STR_CAPTURE_HOLD_B,               // "B: cancel"
+    STR_STATUS_CAPTURE_OK,            // avant redemarrage
+    STR_CAPTURE_ACTIVE_TITLE,         // rappel a chaque lancement
+    STR_CAPTURE_ACTIVE_L1,
+    STR_CAPTURE_ACTIVE_L2,
+    STR_CAPTURE_ACTIVE_HINTS,         // "A: Nextendo   Y: Nintendo   B: close"
+
+    // --- Mode NINTENDO en emuMMC : choix du blanchiment du PRODINFO ---
+    STR_PRODINFO_TITLE,
+    STR_PRODINFO_YES,                 // ce que fait "Blanchir"
+    STR_PRODINFO_NO,                  // ce que fait "Garder le reel"
+    STR_PRODINFO_NOW_ON,              // etat actuel : blanchi
+    STR_PRODINFO_NOW_OFF,             // etat actuel : reel
+    STR_PRODINFO_HINTS,               // "A: Blank (recommended)   Y: Keep real   B: Cancel"
     STR_COUNT
 } StringID;
 

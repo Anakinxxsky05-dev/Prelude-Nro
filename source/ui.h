@@ -40,6 +40,15 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
 // Nombre de lignes du panneau d'une section — main.c borne le focus avec ca.
 int ui_pane_rows(int railSel, bool ssbuInstalled);
 
+// Mode CAPTURE (cache) : la ligne n'existe que si main.c l'a revelee ou s'il est actif.
+void ui_set_capture_visible(bool visible);
+// Avertissement avant d'appliquer : confirmation en MAINTENANT X ; holdPct = 0..100.
+void ui_draw_capture_warn(int holdPct);
+// Rappel affiche a chaque lancement tant que le mode CAPTURE est actif.
+void ui_draw_capture_active(void);
+// Mode NINTENDO en emuMMC : A = blanchir le PRODINFO, Y = garder le reel, B = annuler.
+void ui_draw_prodinfo_ask(bool blankedNow);
+
 // Popup de CONFIRMATION avant d'appliquer + redemarrer (A = confirmer, B = annuler).
 // warnNoEmummc : console sans emuMMC (CFW sur la memoire interne). Le mode NINTENDO ne peut alors
 // offrir AUCUNE protection d'identite -> l'ecran de confirmation le dit franchement. Passe par

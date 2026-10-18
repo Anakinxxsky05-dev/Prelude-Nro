@@ -371,12 +371,18 @@ static const char *railLabel(int i) {
     }
 }
 
+// Le mode CAPTURE est cache : sa ligne n'existe que si main.c l'a revele (combinaison
+// ZL+ZR+Moins) ou si c'est le mode actif. Un etat partage ici, et non un parametre de plus,
+// pour que ui_pane_rows et le rendu ne puissent pas diverger.
+static bool s_captureVisible = false;
+void ui_set_capture_visible(bool visible) { s_captureVisible = visible; }
+
 // Nombre de lignes du panneau pour une section. main.c en a besoin pour borner
 // le deplacement du focus : la logique de navigation ne doit pas deviner ce que
 // le rendu affiche, sinon les deux divergent des qu'on ajoute une ligne.
 int ui_pane_rows(int railSel, bool ssbuInstalled) {
     switch (railSel) {
-        case RAIL_MODE: return 2;                        // Nextendo / Nintendo
+        case RAIL_MODE: return s_captureVisible ? 3 : 2; // Nextendo / Nintendo (/ Capture)
         case RAIL_SSBU: return ssbuInstalled ? 2 : 1;    // mod (+ overclock si installe)
         // Une seule ligne actionnable : le bouton de (re)installation. Le reste de la
         // section est du texte. On declare 1 meme en mode Nintendo, ou le bouton n'est
@@ -444,13 +450,17 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
     #define FOC(i) (paneFocused && paneSel == (i))
 
     if (railSel == RAIL_MODE) {
-        for (int i = 0; i < 2; i++) {
-            bool isNx = (i == CHOICE_NEXTENDO);
+        int nModes = s_captureVisible ? 3 : 2;
+        for (int i = 0; i < nModes; i++) {
+            bool isNx  = (i == CHOICE_NEXTENDO);
+            bool isCap = (i == CHOICE_CAPTURE);
             int rowY = y;
-            y = chromeRow(b, st, x, y, w, FOC(i), isNx ? "Nextendo" : "Nintendo",
-                          lang_str(isNx ? STR_DESC_NEXTENDO : STR_DESC_NINTENDO));
+            y = chromeRow(b, st, x, y, w, FOC(i),
+                          isNx ? "Nextendo" : isCap ? "Capture" : "Nintendo",
+                          lang_str(isNx ? STR_DESC_NEXTENDO
+                                        : isCap ? STR_DESC_CAPTURE : STR_DESC_NINTENDO));
             roundedCard(b, st, x + SP_MD - 4, rowY + ROW_H / 2 - 6, 12, 12, 6,
-                        packColor(isNx ? C_BLUE : C_RED));
+                        packColor(isNx ? C_BLUE : isCap ? theme_warn() : C_RED));
             if (current == i)
                 chromeBadge(b, st, x, rowY, w, lang_str(STR_BADGE_ACTIVE),
                             theme_ok(), COL(0xFF,0xFF,0xFF));
@@ -480,7 +490,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         char ligne[256];
         bool aJour = (s3 && s3->onSd > 0 && s3->onSd >= s3->inRomfs);
 
-        if (s3 && current == CHOICE_NINTENDO) {
+        if (s3 && current != CHOICE_NEXTENDO) {
             drawF(b, st, s_semi, x, y + FS_BODY, FS_BODY, cInfo, lang_str(STR_S3_NINTENDO));
         } else if (s3 && s3->onSd == 0) {
             drawF(b, st, s_semi, x, y + FS_BODY, FS_BODY, cWarn, lang_str(STR_S3_MISSING));
@@ -493,7 +503,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         }
         y += FS_BODY + SP_SM;
 
-        if (s3 && !s3->dnsMitmOn && current != CHOICE_NINTENDO) {
+        if (s3 && !s3->dnsMitmOn && current == CHOICE_NEXTENDO) {
             drawF(b, st, s_reg, x, y + FS_CAP, FS_CAP, cWarn, lang_str(STR_S3_DNS_OFF));
             y += FS_CAP + 4;
         }
@@ -503,7 +513,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         y += FS_CAP + SP_SM;
 
         // Liste des jeux detectes avec leurs dossiers et nombre de patchs
-        if (s3 && current != CHOICE_NINTENDO && s3->installedGameCount > 0) {
+        if (s3 && current == CHOICE_NEXTENDO && s3->installedGameCount > 0) {
             for (int i = 0; i < s3->installedGameCount; i++) {
                 const NextendoGamePatchStatus *gp = &s3->installedGames[i];
                 char folderList[192] = "";
@@ -527,7 +537,7 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
         // La SEULE ligne actionnable. En mode Nintendo elle n'apparait pas : ce mode
         // retire volontairement la pile de certificats, et un bouton qui la repose
         // serait une faille deguisee en confort.
-        if (current != CHOICE_NINTENDO)
+        if (current == CHOICE_NEXTENDO)
             y = chromeRow(b, st, x, y, w, FOC(0),
                           lang_str(aJour ? STR_S3_REINSTALL : STR_S3_INSTALL),
                           lang_str(STR_S3_REINSTALL_SUB));
@@ -709,6 +719,110 @@ void ui_draw_question(const char *title, const char *l1, const char *l2) {
            packColor(theme_text2()), lang_str(STR_ASK_B_NO));
     drawCF(b, st, s_semi, dx + dw * 3 / 4, ay + 42, FS_BODY,
            packColor(C_CYAN), lang_str(STR_ASK_A_YES));
+
+    framebufferEnd(&s_fb);
+}
+
+// Voile + carte centree, partage par les deux ecrans du mode CAPTURE.
+static void captureCard(u32 *b, u32 st, int dw, int dh, int *dx, int *dy) {
+    chromeClear(b, st);
+    chromeHeader(b, st, lang_str(STR_TITLE_PRELUDE), NULL);
+    u32 sw = st / sizeof(u32);
+    for (int y = 0; y < FB_H; y++)
+        for (int x = 0; x < FB_W; x++) {
+            u32 d = b[y * sw + x];
+            b[y * sw + x] = blendPix(d, 0, 0, 0, g_theme == THEME_LIGHT ? 90 : 130);
+        }
+    *dx = (FB_W - dw) / 2;
+    *dy = (FB_H - dh) / 2;
+    roundedCard(b, st, *dx, *dy, dw, dh, RADIUS + 6, packColor(theme_pane()));
+    // Liseré rouge a gauche : cet ecran n'est PAS une confirmation ordinaire.
+    fillRect(b, st, *dx, *dy, 6, dh, packColor(C_RED));
+}
+
+// ------- Avertissement avant le mode CAPTURE -------
+// Pas de « A = confirmer » : un toast d'A ne doit pas suffire a desactiver la verification des
+// certificats. On confirme en MAINTENANT X ; holdPct (0-100) dessine la progression.
+void ui_draw_capture_warn(int holdPct) {
+    u32 st;
+    u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
+    int dw = 900, dh = 440, dx, dy;
+    captureCard(b, st, dw, dh, &dx, &dy);
+
+    int y = dy + SP_XL;
+    drawCF(b, st, s_semi, FB_W / 2, y, FS_BIG, packColor(C_RED), lang_str(STR_CAPTURE_WARN_TITLE));
+    y += SP_LG;
+    const StringID ln[4] = { STR_CAPTURE_WARN_L1, STR_CAPTURE_WARN_L2,
+                             STR_CAPTURE_WARN_L3, STR_CAPTURE_WARN_L4 };
+    for (int i = 0; i < 4; i++) {
+        drawCF(b, st, i == 1 ? s_semi : s_reg, FB_W / 2, y, FS_BODY,
+               packColor(i == 1 ? theme_warn() : theme_text2()), lang_str(ln[i]));
+        y += SP_MD + SP_XS;
+    }
+
+    // Barre de maintien de X.
+    if (holdPct < 0) holdPct = 0;
+    if (holdPct > 100) holdPct = 100;
+    int bx = dx + SP_LG, bw = dw - SP_LG * 2, by = dy + dh - 64 - SP_MD - 14;
+    roundedCard(b, st, bx, by, bw, 14, 7, packColor(theme_sep()));
+    if (holdPct > 0)
+        roundedCard(b, st, bx, by, bw * holdPct / 100, 14, 7, packColor(C_RED));
+
+    int ay = dy + dh - 64;
+    fillRect(b, st, dx, ay, dw, 2, packColor(theme_sep()));
+    fillRect(b, st, dx + dw / 2, ay, 2, 64, packColor(theme_sep()));
+    drawCF(b, st, s_reg,  dx + dw / 4,     ay + 42, FS_BODY,
+           packColor(theme_text2()), lang_str(STR_CAPTURE_HOLD_B));
+    drawCF(b, st, s_semi, dx + dw * 3 / 4, ay + 42, FS_BODY,
+           packColor(C_RED), lang_str(STR_CAPTURE_HOLD_X));
+
+    framebufferEnd(&s_fb);
+}
+
+// ------- Rappel a chaque lancement tant que le mode CAPTURE est actif -------
+void ui_draw_capture_active(void) {
+    u32 st;
+    u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
+    int dw = 900, dh = 300, dx, dy;
+    captureCard(b, st, dw, dh, &dx, &dy);
+
+    int y = dy + SP_XL;
+    drawCF(b, st, s_semi, FB_W / 2, y, FS_BIG, packColor(C_RED), lang_str(STR_CAPTURE_ACTIVE_TITLE));
+    y += SP_LG;
+    drawCF(b, st, s_reg, FB_W / 2, y, FS_BODY, packColor(theme_text2()), lang_str(STR_CAPTURE_ACTIVE_L1));
+    y += SP_MD + SP_XS;
+    drawCF(b, st, s_semi, FB_W / 2, y, FS_BODY, packColor(theme_warn()), lang_str(STR_CAPTURE_ACTIVE_L2));
+
+    int ay = dy + dh - 64;
+    fillRect(b, st, dx, ay, dw, 2, packColor(theme_sep()));
+    drawCF(b, st, s_semi, FB_W / 2, ay + 42, FS_BODY, packColor(C_CYAN),
+           lang_str(STR_CAPTURE_ACTIVE_HINTS));
+
+    framebufferEnd(&s_fb);
+}
+
+// ------- Mode NINTENDO en emuMMC : blanchir le PRODINFO ou garder le reel -------
+// Trois issues (A / Y / B), d'ou un ecran a part plutot que la question OUI/NON.
+void ui_draw_prodinfo_ask(bool blankedNow) {
+    u32 st;
+    u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
+    int dw = 980, dh = 340, dx, dy;
+    captureCard(b, st, dw, dh, &dx, &dy);
+
+    int y = dy + SP_XL;
+    drawCF(b, st, s_semi, FB_W / 2, y, FS_BIG, packColor(theme_text()), lang_str(STR_PRODINFO_TITLE));
+    y += SP_LG;
+    drawCF(b, st, s_reg, FB_W / 2, y, FS_CAP, packColor(theme_text2()), lang_str(STR_PRODINFO_YES));
+    y += SP_MD;
+    drawCF(b, st, s_semi, FB_W / 2, y, FS_CAP, packColor(theme_warn()), lang_str(STR_PRODINFO_NO));
+    y += SP_MD + SP_XS;
+    drawCF(b, st, s_reg, FB_W / 2, y, FS_CAP, packColor(theme_text2()),
+           lang_str(blankedNow ? STR_PRODINFO_NOW_ON : STR_PRODINFO_NOW_OFF));
+
+    int ay = dy + dh - 64;
+    fillRect(b, st, dx, ay, dw, 2, packColor(theme_sep()));
+    drawCF(b, st, s_semi, FB_W / 2, ay + 42, FS_BODY, packColor(C_CYAN),
+           lang_str(STR_PRODINFO_HINTS));
 
     framebufferEnd(&s_fb);
 }

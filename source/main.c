@@ -51,6 +51,8 @@ enum {
     SCREEN_BACKUP_ASK, SCREEN_USEBAK_ASK,
     SCREEN_MODS_ASK, SCREEN_ACCOUNT_WARN,
     SCREEN_NEWS_REBOOT,
+    SCREEN_CAPTURE_WARN, SCREEN_CAPTURE_ACTIVE,   // mode CAPTURE (cache)
+    SCREEN_PRODINFO_ASK,                          // mode NINTENDO en emuMMC : PRODINFO
     // Smash et Langue ne sont plus des ecrans : leur contenu vit dans le
     // panneau du rail. Ne restent modaux que confirmation / progression /
     // resultat, et la liste de 110 pays, trop longue pour un panneau.
@@ -82,7 +84,8 @@ static void writeExitLog(int lastScreen, const char *lastTitle, const char *last
     fprintf(f, "boot : %s\n", boot == BOOT_SYSMMC ? "SYSMMC"
                             : boot == BOOT_EMUMMC ? "EMUMMC" : "UNKNOWN");
     fprintf(f, "no_emummc : %d\n", noEmummc);
-    fprintf(f, "current mode : %s\n", currentMode == CHOICE_NEXTENDO ? "NEXTENDO" : "NINTENDO");
+    fprintf(f, "current mode : %s\n", currentMode == CHOICE_NEXTENDO ? "NEXTENDO"
+                                     : currentMode == CHOICE_CAPTURE  ? "CAPTURE" : "NINTENDO");
     fprintf(f, "server ip : %s\n", g_server_ip);
     fprintf(f, "update available : %s", upd->available ? "YES" : "no");
     if (upd->available) fprintf(f, " (v%d.%d.%d)", upd->maj, upd->min, upd->patch);
@@ -270,6 +273,17 @@ int main(int argc, char **argv) {
     // des qu'un mode est applique, les fichiers d'origine sont ecrases et il n'y a plus
     // rien a sauver. Une fois la question posee, elle ne revient jamais.
     if (nextendo_backup_prompt_needed()) screen = SCREEN_BACKUP_ASK;
+    // Mode CAPTURE (cache). Visible d'office s'il est actif : il faut pouvoir en sortir. Et
+    // tant qu'il l'est, le rappel passe AVANT tout le reste a chaque lancement — y compris la
+    // question de sauvegarde, qui sera reposee la fois suivante.
+    bool captureRevealed = (current == CHOICE_CAPTURE);
+    ui_set_capture_visible(captureRevealed);
+    if (current == CHOICE_CAPTURE) {
+        nextendo_trace("13c mode CAPTURE actif -> rappel");
+        screen = SCREEN_CAPTURE_ACTIVE;
+    }
+    int  captureCombo = 0;   // frames de ZL+ZR+Moins maintenus (revele le mode)
+    int  captureHold  = 0;   // frames de X maintenu sur l'avertissement
     int  state  = 0;
     char status[160] = {0};
     char rTitle[64] = {0}, rMsg[192] = {0};
@@ -400,6 +414,21 @@ int main(int argc, char **argv) {
                     }
                 } else {
                     // --- Colonne de droite : on parcourt les lignes de la section ---
+                    // Mode CAPTURE cache : ZL+ZR+Moins maintenus ~2 s sur la section Mode le
+                    // revelent. Rien a l'ecran n'annonce que cette combinaison existe.
+                    if (railSel == RAIL_MODE && !captureRevealed) {
+                        const u64 combo = HidNpadButton_ZL | HidNpadButton_ZR | HidNpadButton_Minus;
+                        if ((padGetButtons(&pad) & combo) == combo) {
+                            if (++captureCombo >= 120) {
+                                captureRevealed = true;
+                                ui_set_capture_visible(true);
+                                snprintf(status, sizeof(status), "%s", lang_str(STR_CAPTURE_UNLOCKED));
+                                nextendo_trace("17c mode CAPTURE revele");
+                            }
+                        } else {
+                            captureCombo = 0;
+                        }
+                    }
                     int rows = ui_pane_rows(railSel, ssbuInstalled);
                     if (k & HidNpadButton_AnyUp)   paneSel = (paneSel + rows - 1) % rows;
                     if (k & HidNpadButton_AnyDown) paneSel = (paneSel + 1) % rows;
@@ -408,6 +437,15 @@ int main(int argc, char **argv) {
                     if (k & HidNpadButton_A) {
                         switch (railSel) {
                         case RAIL_MODE:
+                            // Le mode CAPTURE a son propre avertissement (X maintenu), pas
+                            // la confirmation A/B des deux autres.
+                            if (paneSel == CHOICE_CAPTURE) {
+                                nextendo_trace("17d A picker -> avertissement CAPTURE");
+                                captureHold = 0;
+                                screen = SCREEN_CAPTURE_WARN;
+                                status[0] = 0;
+                                break;
+                            }
                             // paneSel EST le mode choisi : avant, sel etait fige au
                             // demarrage et l'utilisateur ne choisissait rien.
                             sel = paneSel;
@@ -420,7 +458,7 @@ int main(int argc, char **argv) {
                             // a ceux qui mettent Prelude a jour puis revoient le meme code
                             // d'erreur. Interdit en mode Nintendo, qui retire la pile de
                             // certificats expres — la reposer ici serait une faille.
-                            if (current != CHOICE_NINTENDO) {
+                            if (current == CHOICE_NEXTENDO) {
                                 nextendo_provision_all_public();
                                 nextendo_s3_status(&s3);   // relire : le panneau doit refleter la carte
                                 snprintf(status, sizeof(status), "%s", lang_str(STR_S3_DONE));
@@ -530,6 +568,12 @@ int main(int argc, char **argv) {
             } else {
                 if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
                     state = 0;
+                } else if ((k & HidNpadButton_A) && sel == CHOICE_NINTENDO && boot == BOOT_EMUMMC) {
+                    // emuMMC : le blanchiment du PRODINFO est un vrai choix (identite cachee vs
+                    // online Nintendo). Sur sysNAND seul il n'a aucun effet, donc pas de question.
+                    nextendo_trace("19b A confirmation Nintendo (emuMMC) -> question PRODINFO");
+                    state  = 0;
+                    screen = SCREEN_PRODINFO_ASK;
                 } else if (k & HidNpadButton_A) {
                     nextendo_trace("19 A confirmation -> appel de apply_*");
                     bool ok = (sel == CHOICE_NEXTENDO) ? nextendo_apply_nextendo()
@@ -597,6 +641,74 @@ int main(int argc, char **argv) {
                 snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_REBOOT_FAIL));
                 screen = SCREEN_PICKER;
             }
+
+        } else if (screen == SCREEN_CAPTURE_WARN) {
+            // B / + annulent. X doit etre MAINTENU ~3 s : le relacher remet a zero.
+            if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
+                captureHold = 0;
+                screen = SCREEN_PICKER;
+            } else if (padGetButtons(&pad) & HidNpadButton_X) {
+                if (++captureHold >= 180) {
+                    nextendo_trace("19c X maintenu -> apply_capture");
+                    if (nextendo_apply_capture()) {
+                        ui_draw_progress(lang_str(STR_STATUS_CAPTURE_OK));
+                        svcSleepThread(1200000000ULL);
+                        audio_exit();
+                        nextendo_reboot();
+                        snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_REBOOT_FAIL));
+                    } else {
+                        snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_SD_ERROR));
+                    }
+                    // Relire : apply_nintendo a pu passer meme si la suite a echoue.
+                    current = nextendo_current_mode();
+                    captureHold = 0;
+                    screen = SCREEN_PICKER;
+                }
+            } else {
+                captureHold = 0;
+            }
+            if (screen == SCREEN_CAPTURE_WARN)
+                ui_draw_capture_warn(captureHold * 100 / 180);
+
+        } else if (screen == SCREEN_PRODINFO_ASK) {
+            // A = blanchir (defaut sur), Y = garder le PRODINFO reel, B / + = annuler.
+            if (k & (HidNpadButton_A | HidNpadButton_Y)) {
+                bool blank = (k & HidNpadButton_A) != 0;
+                nextendo_trace(blank ? "19d PRODINFO: blanchir -> apply_nintendo"
+                                     : "19d PRODINFO: garder le reel -> apply_nintendo");
+                if (nextendo_apply_nintendo_ex(blank)) {
+                    ui_draw_progress(lang_str(STR_STATUS_NINTENDO_OK));
+                    svcSleepThread(1200000000ULL);
+                    audio_exit();
+                    nextendo_reboot();
+                    snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_REBOOT_FAIL));
+                } else {
+                    snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_SD_ERROR));
+                }
+                current = nextendo_current_mode();
+                screen = SCREEN_PICKER;
+            } else if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
+                screen = SCREEN_PICKER;
+            }
+            if (screen == SCREEN_PRODINFO_ASK)
+                ui_draw_prodinfo_ask(nextendo_prodinfo_emummc_blanked());
+
+        } else if (screen == SCREEN_CAPTURE_ACTIVE) {
+            // A / Y menent a la confirmation habituelle du mode choisi ; B ferme le rappel.
+            // VOLONTAIREMENT hors du verrou de MAJ obligatoire : sortir d'un mode qui desactive
+            // la verification des certificats ne doit jamais attendre une mise a jour.
+            if (k & (HidNpadButton_A | HidNpadButton_Y)) {
+                sel       = (k & HidNpadButton_A) ? CHOICE_NEXTENDO : CHOICE_NINTENDO;
+                railSel   = RAIL_MODE;
+                paneFocus = true;
+                paneSel   = sel;
+                state     = 1;
+                screen    = SCREEN_PICKER;
+            } else if (k & (HidNpadButton_B | HidNpadButton_Plus)) {
+                screen = SCREEN_PICKER;
+            }
+            if (screen == SCREEN_CAPTURE_ACTIVE)
+                ui_draw_capture_active();
 
         } else if (screen == SCREEN_ACCOUNT_WARN) {
             if (k & HidNpadButton_A) {

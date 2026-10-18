@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>  // strcasecmp (extension .ips des patches de CA)
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
@@ -452,9 +453,38 @@ static bool iniSetBlankProdinfoEmummc(bool blank) {
     return ok;
 }
 
+// --- Mode CAPTURE : etat sur la carte ---
+// Le mode CAPTURE est un mode NINTENDO auquel on rend les patches disable_ca_verification du
+// ssl, pour capturer avec mitmproxy (voir capturas.md). Sans hosts Nextendo, la detection par
+// les hosts le prendrait pour NINTENDO : un marqueur le distingue. Il vit a cote de l'etat que
+// Prelude gere deja dans sdmc:/switch/ (prelude_backup.cfg), PAS dans /atmosphere/.
+#define NEXTENDO_CAPTURE_FLAG    "sdmc:/switch/prelude_capture_mode.flag"
+#define NEXTENDO_CA_PATCH_ROMFS  "romfs:/sd/atmosphere/exefs_patches/disable_ca_verification"
+#define NEXTENDO_CA_PATCH_SD     "sdmc:/atmosphere/exefs_patches/disable_ca_verification"
+
+static bool captureFlagPresent(void) {
+    struct stat st;
+    return stat(NEXTENDO_CAPTURE_FLAG, &st) == 0;
+}
+
+// Au moins un .ips dans disable_ca_verification. Sans patch, le mode CAPTURE n'en est pas un :
+// la console parle a Nintendo comme en mode NINTENDO et rien ne s'intercepte.
+static bool capturePatchesPresent(void) {
+    DIR *d = opendir(NEXTENDO_CA_PATCH_SD);
+    if (!d) return false;
+    bool found = false;
+    struct dirent *e;
+    while (!found && (e = readdir(d)) != NULL) {
+        size_t n = strlen(e->d_name);
+        if (n > 4 && strcasecmp(e->d_name + n - 4, ".ips") == 0) found = true;
+    }
+    closedir(d);
+    return found;
+}
+
 // --- Detection du MODE ACTUELLEMENT CHARGE (pour l'UI) ---
 // NEXTENDO si un fichier hosts redirige encore vers notre VPS (51.178.29.194) ;
-// sinon NINTENDO (apply_nintendo les renomme en .bak -> plus de redirection).
+// sinon CAPTURE si le marqueur ET les patches de CA sont la ; sinon NINTENDO.
 static bool fileHas(const char *path, const char *needle) {
     FILE *f = fopen(path, "rb");
     if (!f) return false;
@@ -471,6 +501,13 @@ int nextendo_current_mode(void) {
         fileHas(NEXTENDO_HOSTS_SYSMMC, NEXTENDO_SERVER_IP_ALT) ||
         fileHas(NEXTENDO_HOSTS_EMUMMC, NEXTENDO_SERVER_IP_ALT))
         return 0;   // CHOICE_NEXTENDO
+    if (captureFlagPresent()) {
+        if (capturePatchesPresent())
+            return 2;   // CHOICE_CAPTURE
+        // Marqueur sans patches (effaces a la main, ou carte retouchee) : ce n'est plus une
+        // capture. On l'efface pour que l'ecran ne continue pas d'annoncer un mode absent.
+        remove(NEXTENDO_CAPTURE_FLAG);
+    }
     return 1;       // CHOICE_NINTENDO
 }
 
@@ -980,6 +1017,7 @@ void nextendo_s3_status(NextendoS3Status *out) {
 }
 
 bool nextendo_apply_nextendo_ip(const char *ip) {
+    remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE par ce chemin aussi
     if (R_FAILED(ensureDir(NEXTENDO_HOSTS_DIR))) return false;
     if (!nextendo_provision_all()) {
         nextendo_trace("30 WARN: provision_all a echoue -> annulation");
@@ -1033,8 +1071,17 @@ bool nextendo_apply_nextendo(void) {
     return nextendo_apply_nextendo_ip(g_server_ip);
 }
 
+bool nextendo_prodinfo_emummc_blanked(void) {
+    return fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1");
+}
+
 bool nextendo_apply_nintendo(void) {
+    return nextendo_apply_nintendo_ex(true);
+}
+
+bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     nextendo_trace("20 apply_nintendo: entree");
+    remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE ; apply_capture le repose apres
     // Nos hosts sont SUPPRIMES, pas renommes : le retour en mode Nextendo les reecrit depuis
     // NEXTENDO_HOSTS et n'a jamais relu le .bak, qui ne servait donc qu'a garder l'IP du VPS
     // lisible sur la carte.
@@ -1111,12 +1158,54 @@ bool nextendo_apply_nintendo(void) {
     nextendo_trace(hostsGone ? "25 ini ok (hosts partis, dns_mitm garde actif)"
                              : "25 ini ok (SECOURS : hosts resistants, dns_mitm coupe)");
 
-    iniSetBlankProdinfoEmummc(true);     // emuMMC : PRODINFO blanchi -> anti-ban si online vrai Nintendo
-                                         // (sans effet sur une console sysNAND-only : l'UI previent)
-    nextendo_trace("26 blank_prodinfo ok");
+    // emuMMC : PRODINFO blanchi -> anti-ban si online vrai Nintendo (sans effet sur une console
+    // sysNAND-only : l'UI previent). Le joueur peut choisir de garder le VRAI PRODINFO pour jouer
+    // en ligne chez Nintendo depuis l'emuMMC : c'est son choix, l'ecran dit le risque.
+    iniSetBlankProdinfoEmummc(blankProdinfo);
+    nextendo_trace(blankProdinfo ? "26 blank_prodinfo_emummc=1"
+                                 : "26 blank_prodinfo_emummc=0 (choix du joueur)");
     fsdevCommitDevice("sdmc");
     nextendo_trace("27 apply_nintendo: TERMINE");
     return i;
+}
+
+// --- Mode CAPTURE (cache) : vrai Nintendo + patches disable_ca_verification du ssl ---
+// Sert UNIQUEMENT a capturer le trafic d'un jeu avec mitmproxy (capturas.md). C'est le mode
+// NINTENDO, puis on rend volontairement ce que apply_nintendo vient de retirer pour la
+// securite : la verification des certificats du ssl. Rien d'autre — ni notre CA dans le
+// navigateur, ni rootCA.pem, ni la signature bcat, ni les hosts.
+//
+// Le PRODINFO reel est servi a l'emuMMC : sans lui la console n'a pas de certificat valide
+// et ne joint aucun serveur de jeu chez Nintendo, donc pas de capture. C'est aussi ce qui
+// rend ce mode dangereux (vraie identite de la console, CFW, vrais serveurs) : l'ecran
+// d'avertissement le dit, et le mode n'est accessible que par une combinaison cachee.
+bool nextendo_apply_capture(void) {
+    nextendo_trace("40 apply_capture: entree");
+    if (!nextendo_apply_nintendo()) {
+        nextendo_trace("41 apply_capture: apply_nintendo a echoue -> annulation");
+        return false;
+    }
+    if (R_FAILED(ensureDir(NEXTENDO_CA_PATCH_SD)) ||
+        !copyTreeRomfs(NEXTENDO_CA_PATCH_ROMFS, NEXTENDO_CA_PATCH_SD) ||
+        !capturePatchesPresent()) {
+        nextendo_trace("42 apply_capture: copie des patches de CA echouee -> annulation");
+        return false;
+    }
+    nextendo_trace("42 patches disable_ca_verification copies");
+    if (!iniSetBlankProdinfoEmummc(false)) {
+        nextendo_trace("43 apply_capture: blank_prodinfo_emummc=0 echoue -> annulation");
+        return false;
+    }
+    nextendo_trace("43 blank_prodinfo_emummc=0");
+    ensureDir("sdmc:/switch");
+    if (!writeTextFile(NEXTENDO_CAPTURE_FLAG, "capture\n")) {
+        nextendo_trace("44 apply_capture: marqueur non ecrit -> annulation");
+        return false;
+    }
+    nextendo_trace("44 marqueur capture ecrit");
+    fsdevCommitDevice("sdmc");
+    nextendo_trace("45 apply_capture: TERMINE");
+    return true;
 }
 
 // --- Diagnostic reseau (trace les infos utiles pour 2123-0011 / 2810-1224) ---

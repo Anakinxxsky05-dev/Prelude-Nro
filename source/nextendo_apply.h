@@ -29,8 +29,9 @@ void nextendo_trace(const char *step);
 // Detecte le storage de boot (cosmetique : on ecrit les 2 fichiers de toute facon).
 BootType nextendo_detect_boot(void);
 
-// Mode ACTUELLEMENT charge : 0 = NEXTENDO, 1 = NINTENDO (memes valeurs que CHOICE_*).
-// Lu depuis les fichiers hosts (redirection VPS presente ou non).
+// Mode ACTUELLEMENT charge : 0 = NEXTENDO, 1 = NINTENDO, 2 = CAPTURE (memes valeurs que
+// CHOICE_*). Lu depuis les fichiers hosts (redirection VPS presente ou non), puis le marqueur
+// du mode CAPTURE (qui exige aussi les patches disable_ca_verification sur la carte).
 int nextendo_current_mode(void);
 
 // Mode NEXTENDO : ecrit les hosts (sysmmc.txt + emummc.txt) + enable_dns_mitm=1.
@@ -42,6 +43,17 @@ bool nextendo_apply_nextendo(void);
 
 // Mode NINTENDO : renomme les hosts Nextendo en .bak + enable_dns_mitm=0 -> tout redevient normal.
 bool nextendo_apply_nintendo(void);
+
+// Mode NINTENDO avec choix du PRODINFO en emuMMC : true = blanchi (defaut, anti-ban, pas
+// d'online Nintendo en emuMMC), false = PRODINFO reel (online Nintendo possible, risque de ban).
+bool nextendo_apply_nintendo_ex(bool blankProdinfo);
+
+// exosphere.ini contient blank_prodinfo_emummc=1.
+bool nextendo_prodinfo_emummc_blanked(void);
+
+// Mode CAPTURE (cache) : mode NINTENDO + patches disable_ca_verification du ssl + PRODINFO reel
+// en emuMMC + marqueur. Pour capturer avec mitmproxy uniquement ; voir l'avertissement dans l'UI.
+bool nextendo_apply_capture(void);
 
 // Teste la connectivite reseau de base et loggue les resultats dans la trace
 // (diagnostic pour 2123-0011 et 2810-1224). Necessite socketInitializeDefault().

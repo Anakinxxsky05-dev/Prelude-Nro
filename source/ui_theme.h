@@ -111,6 +111,7 @@ Color theme_warn(void);      // avertissement (console sans emuMMC)
 
 #define CHOICE_NEXTENDO 0
 #define CHOICE_NINTENDO 1
+#define CHOICE_CAPTURE  2   // cache : n'apparait qu'apres la combinaison ZL+ZR+Moins (main.c)
 
 // ------------------------------------------------------------------
 //  NAVIGATION A DEUX COLONNES (modele des Parametres).
