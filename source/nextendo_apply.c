@@ -251,6 +251,15 @@ char *nextendo_hosts_build(const char *ip) {
     EMIT_H("\n# --- Friday the 13th: The Game (backend REST IllFonic, apres le Register NEX) ---\n");
     snprintf(line, sizeof(line), "%s nswitch.f13.illfonic.com\n", ip);          EMIT_H(line);
 
+    EMIT_H("\n# --- Among Us (login Epic Online Services, compte Innersloth, matchmakers regionaux) ---\n");
+    // api.epicgames.dev sert aussi d'autres jeux Epic : le service de comptes Nextendo ne traite
+    // que Among Us et retransmet le reste, tel quel, au vrai Epic.
+    snprintf(line, sizeof(line), "%s api.epicgames.dev\n", ip);                 EMIT_H(line);
+    snprintf(line, sizeof(line), "%s backend.innersloth.com\n", ip);            EMIT_H(line);
+    snprintf(line, sizeof(line), "%s matchmaker.among.us\n", ip);               EMIT_H(line);
+    snprintf(line, sizeof(line), "%s matchmaker-eu.among.us\n", ip);            EMIT_H(line);
+    snprintf(line, sizeof(line), "%s matchmaker-as.among.us\n", ip);            EMIT_H(line);
+
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
 

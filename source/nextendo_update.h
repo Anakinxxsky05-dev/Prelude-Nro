@@ -650,7 +650,13 @@
 //           game aborted with 2124-0400 when pressing + in Y-Comm on console.
 // build 89: v4.0.4. Nintendo mode on emuMMC asks whether to blank PRODINFO (default) or keep the
 //           real one; hidden capture mode for maintainers (ZL+ZR+Minus on the Mode section).
-#define NEXTENDO_BUILD 89
+// build 90: v4.0.5. Among Us 2026.19.0 and 2026.18.0 online: hosts for the Epic Online Services login, the
+//           Innersloth account and the three matchmakers, plus the plain-UDP ExeFS patch (amongus_no_dtls/,
+//           CED5DFD4... for 19.0 and 19A77A31... for 18.0), because the game demands DTLS with a certificate
+//           only Innersloth holds.
+//           api.epicgames.dev is shared with other Epic games; the Nextendo account service forwards
+//           everything that is not Among Us to the real Epic.
+#define NEXTENDO_BUILD 90
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -666,7 +672,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 4
+#define NEXTENDO_VERSION_PATCH 5
 #endif
 
 typedef struct {
