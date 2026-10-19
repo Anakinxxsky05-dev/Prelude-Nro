@@ -160,8 +160,76 @@ static struct {
 
 static Thread s_bootThread;
 
+// ask the system to refresh its network clock without changing timezone settings
+static void syncNetworkClock(void) {
+    Service ntc = {0}, task = {0};
+    Event finished = {0};
+    bool hasEvent = false, started = false;
+    Handle handle = INVALID_HANDLE;
+    const u64 options = 0;
+    const char *stage = "open service";
+    char message[160];
+
+    Result rc = smGetService(&ntc, "ntc");
+    if (R_FAILED(rc)) goto cleanup;
+
+    stage = "open task";
+    rc = serviceDispatchIn(&ntc, 0, options,
+        .out_num_objects = 1, .out_objects = &task);
+    if (R_FAILED(rc)) goto cleanup;
+
+    stage = "get event";
+    rc = serviceDispatch(&task, 1,
+        .out_handle_attrs = { SfOutHandleAttr_HipcCopy },
+        .out_handles = &handle);
+    if (R_FAILED(rc)) goto cleanup;
+    eventLoadRemote(&finished, handle, false);
+    hasEvent = true;
+
+    stage = "start task";
+    rc = serviceDispatch(&task, 0);
+    if (R_FAILED(rc)) goto cleanup;
+    started = true;
+
+    // offline or blocked time servers must not hold up startup indefinitely
+    stage = "wait for time server";
+    rc = eventWait(&finished, 5000000000ULL);
+    if (R_FAILED(rc)) goto cleanup;
+
+    stage = "get result";
+    rc = serviceDispatch(&task, 2);
+    started = false;
+    if (R_FAILED(rc)) goto cleanup;
+
+    // task completion alone does not prove that a usable clock is available
+    stage = "verify network clock";
+    u64 now = 0;
+    u8 accurate = 0;
+    rc = serviceDispatchOut(timeGetServiceSession(), 200, accurate);
+    if (R_FAILED(rc)) goto cleanup;
+    rc = timeGetCurrentTime(TimeType_NetworkSystemClock, &now);
+    if (R_FAILED(rc)) goto cleanup;
+    if (!accurate || now < 1577836800ULL) {
+        nextendo_trace("time sync: network clock is not verified; continuing");
+        goto cleanup;
+    }
+    nextendo_trace("time sync: network clock is available and accurate");
+
+cleanup:
+    if (started) serviceDispatch(&task, 3);
+    if (hasEvent) eventClose(&finished);
+    serviceClose(&task);
+    serviceClose(&ntc);
+    if (R_FAILED(rc)) {
+        snprintf(message, sizeof(message),
+                 "time sync: %s failed (%08x); continuing", stage, (unsigned)rc);
+        nextendo_trace(message);
+    }
+}
+
 static void bootWorker(void *arg) {
-    (void)arg;
+    // skip the optional check if startup fell back to the ui thread
+    if (arg) syncNetworkClock();
     NextendoUpdate u = nextendo_update_check();
     nextendo_trace(u.available ? "14 update_check: MAJ DISPO -> homebrew verrouille (A inactif)"
                                : "14 update_check: a jour -> A actif");
@@ -315,7 +383,7 @@ int main(int argc, char **argv) {
     s_boot.mode = current;
     nextendo_trace("13 demarrage du thread reseau (picker deja affiche)");
     bool bootThreadOn = false;
-    if (R_SUCCEEDED(threadCreate(&s_bootThread, bootWorker, NULL, NULL, 0x20000, 0x2C, -2))
+    if (R_SUCCEEDED(threadCreate(&s_bootThread, bootWorker, &s_bootThread, NULL, 0x20000, 0x2C, -2))
         && R_SUCCEEDED(threadStart(&s_bootThread))) {
         bootThreadOn = true;
     } else {
