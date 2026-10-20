@@ -649,6 +649,16 @@ static const char *s_strings[STR_COUNT][5] = {
                                  "As noticias ja baixadas da Nintendo foram removidas. Pressione A para reiniciar o console.",
                                  "Les actualites deja telechargees depuis Nintendo ont ete retirees. Appuie sur A pour redemarrer la console.",
                                  "已移除从任天堂下载的新闻。按 A 重启主机。" },
+    [STR_HOSTS_TITLE]        = { "Nextendo hosts updated",
+                                 "Hosts de Nextendo actualizados",
+                                 "Hosts do Nextendo atualizados",
+                                 "Hosts Nextendo mis a jour",
+                                 "Nextendo hosts 已更新" },
+    [STR_HOSTS_UPDATED]      = { "The hosts file on your SD card was out of date for this version of Prelude, so it was updated with the new routes. Press A to restart the console so they load.",
+                                 "El archivo hosts de tu tarjeta SD estaba desactualizado para esta version de Prelude y se actualizo con las nuevas rutas. Pulsa A para reiniciar la consola y que se carguen.",
+                                 "O arquivo hosts do seu cartao SD estava desatualizado para esta versao do Prelude e foi atualizado com as novas rotas. Pressione A para reiniciar o console e carrega-las.",
+                                 "Le fichier hosts de ta carte SD n'etait pas a jour pour cette version de Prelude : il a ete mis a jour avec les nouvelles routes. Appuie sur A pour redemarrer la console et les charger.",
+                                 "SD 卡上的 hosts 文件与此版本的 Prelude 不一致，已更新为新的路由。按 A 重启主机使其生效。" },
 
     // --- Mode CAPTURE (cache). Ne JAMAIS promettre un ban certain ni l'absence de ban :
     //     rien n'est mesure dans un sens ou dans l'autre. On dit "risque eleve". ---

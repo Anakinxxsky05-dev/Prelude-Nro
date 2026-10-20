@@ -89,6 +89,10 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   blanked identity under Nintendo on emuMMC, never touched on sysNAND; and the UI tells you
   plainly what that means for your console type.
 - Your own `hosts` files are offered a one-time backup before Prelude writes over them.
+- **Updating Prelude keeps your hosts current.** When you start Prelude with Nextendo mode already on,
+  a `hosts` file that carries Prelude's signature but differs from what this version writes (for example
+  one without the lines of a game added since) is rewritten, and the console asks you to restart (the hosts are
+  only read at boot). Files that are not Prelude's are never touched, and none is created.
 
 ## How it works
 

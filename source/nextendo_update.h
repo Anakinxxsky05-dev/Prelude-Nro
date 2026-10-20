@@ -659,7 +659,14 @@
 // build 91: v4.0.6. UNO 1.1.17 online: host for the Ubisoft public services sign-in (public-ubiservices.ubi.com).
 //           The Nextendo UNO server answers UNO only and does not forward to Ubisoft, so other Ubisoft titles
 //           cannot go online while Nextendo mode is on.
-#define NEXTENDO_BUILD 91
+// build 92: v4.0.7. The hosts file is now refreshed at launch. It used to be written ONLY when the Nextendo mode
+//           was applied, so a player who updated Prelude kept the hosts of the previous version, without the
+//           lines of the games added since (UCH, UNO...), could not play and had to be sent the file by hand.
+//           When the Nextendo mode is already active, the hosts files that carry the Nextendo signature and
+//           differ from what this version writes are rewritten (same server IP as before), and the console
+//           asks for a restart, because the hosts are only read at boot. Files that are not ours, and missing
+//           ones, are never touched or created.
+#define NEXTENDO_BUILD 92
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -675,7 +682,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 6
+#define NEXTENDO_VERSION_PATCH 7
 #endif
 
 typedef struct {

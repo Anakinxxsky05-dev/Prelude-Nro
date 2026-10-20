@@ -266,6 +266,8 @@ typedef enum {
 
     STR_NEWS_TITLE,                   // ecran apres pose du patch des actualites
     STR_NEWS_CLEANED,
+    STR_HOSTS_TITLE,                  // ecran apres rafraichissement des hosts au demarrage
+    STR_HOSTS_UPDATED,
 
     // --- Mode CAPTURE (cache : ZL+ZR+Moins sur la section Mode) ---
     STR_DESC_CAPTURE,                 // ligne du panneau

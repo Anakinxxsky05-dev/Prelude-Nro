@@ -36,6 +36,7 @@
 #include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
+#include "nextendo_hosts_refresh.h"
 #include "nextendo_net.h"
 #include "nextendo_update.h"  // NEXTENDO_BUILD : la question de sauvegarde se repose a chaque build
 
@@ -1083,6 +1084,56 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
 
 bool nextendo_apply_nextendo(void) {
     return nextendo_apply_nextendo_ip(g_server_ip);
+}
+
+// Lit un petit fichier texte en entier (NUL-termine). NULL s'il est absent, vide ou trop gros pour etre
+// un hosts a nous : on ne lit jamais plus de 64 Ko.
+static char *readSmallTextFile(const char *path, size_t *outLen) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz <= 0 || sz > 65536) { fclose(f); return NULL; }
+    char *buf = (char *)malloc((size_t)sz + 1);
+    if (!buf) { fclose(f); return NULL; }
+    size_t nr = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    if (nr != (size_t)sz) { free(buf); return NULL; }
+    buf[nr] = '\0';
+    *outLen = nr;
+    return buf;
+}
+
+int nextendo_hosts_refresh(void) {
+    if (nextendo_current_mode() != 0) return 0;   // seulement si le mode Nextendo est DEJA actif
+
+    static const char *paths[3] = { NEXTENDO_HOSTS_SYSMMC, NEXTENDO_HOSTS_EMUMMC, NEXTENDO_HOSTS_DEFAULT };
+    char  *cur[3]    = { NULL, NULL, NULL };
+    size_t curLen[3] = { 0, 0, 0 };
+    for (int i = 0; i < 3; i++) cur[i] = readSmallTextFile(paths[i], &curLen[i]);
+
+    const char *ip = nextendo_hosts_pick_ip((const char *const *)cur, 3,
+                                            NEXTENDO_SERVER_IP_DEFAULT, NEXTENDO_SERVER_IP_ALT);
+    char *expected = nextendo_hosts_build(ip);
+    int rewritten = 0;
+    if (expected) {
+        for (int i = 0; i < 3; i++) {
+            HostsRefreshAction act = nextendo_hosts_refresh_action(cur[i], curLen[i], expected,
+                                                                   NEXTENDO_HOSTS_HEADER_MARK);
+            if (act != HOSTS_REWRITE) continue;
+            if (writeTextFile(paths[i], expected)) {
+                rewritten++;
+                nextendo_trace("12b hosts rafraichis (fichier a nous, different de cette version)");
+            } else {
+                nextendo_trace("12b WARN: reecriture des hosts echouee");
+            }
+        }
+        free(expected);
+    }
+    for (int i = 0; i < 3; i++) free(cur[i]);
+    if (rewritten > 0) fsdevCommitDevice("sdmc");
+    return rewritten;
 }
 
 bool nextendo_prodinfo_emummc_blanked(void) {
