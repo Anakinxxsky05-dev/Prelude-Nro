@@ -656,7 +656,10 @@
 //           only Innersloth holds.
 //           api.epicgames.dev is shared with other Epic games; the Nextendo account service forwards
 //           everything that is not Among Us to the real Epic.
-#define NEXTENDO_BUILD 90
+// build 91: v4.0.6. UNO 1.1.17 online: host for the Ubisoft public services sign-in (public-ubiservices.ubi.com).
+//           The Nextendo UNO server answers UNO only and does not forward to Ubisoft, so other Ubisoft titles
+//           cannot go online while Nextendo mode is on.
+#define NEXTENDO_BUILD 91
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -672,7 +675,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 5
+#define NEXTENDO_VERSION_PATCH 6
 #endif
 
 typedef struct {
