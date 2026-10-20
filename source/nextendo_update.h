@@ -659,7 +659,13 @@
 // build 91: v4.0.6. UNO 1.1.17 online: host for the Ubisoft public services sign-in (public-ubiservices.ubi.com).
 //           The Nextendo UNO server answers UNO only and does not forward to Ubisoft, so other Ubisoft titles
 //           cannot go online while Nextendo mode is on.
-#define NEXTENDO_BUILD 91
+// build 92: v4.0.7. Nintendo Classics (NES 9.1.0, SNES 6.0.0, Game Boy 4.1.0, GBA 3.3.0, SEGA Genesis 3.1.1):
+//           the certificate-check ExeFS patch for each application (nsonescertbypass/, nsosnescertbypass/,
+//           nsogameboycertbypass/, nsogbacertbypass/, nsogenesiscertbypass/, one file per Build ID, in the same
+//           two name forms as the N64 one). Their servers sit behind the existing *.srv.nintendo.net hosts, so
+//           no hosts change. The six Classics share ONE row in the Game Patches page (it has no scrolling and
+//           13 rows plus the button fill the screen); a row with more than three folders shows the first and "+N".
+#define NEXTENDO_BUILD 92
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -675,7 +681,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 6
+#define NEXTENDO_VERSION_PATCH 7
 #endif
 
 typedef struct {
