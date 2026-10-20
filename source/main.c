@@ -22,6 +22,10 @@
 #include <string.h>
 #include <switch.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 #include "ui.h"
 #include "audio.h"
@@ -160,8 +164,118 @@ static struct {
 
 static Thread s_bootThread;
 
+// read ntp fields without relying on packed structs or host byte order
+static u32 ntpReadU32(const u8 *p) {
+    return ((u32)p[0] << 24) | ((u32)p[1] << 16) | ((u32)p[2] << 8) | p[3];
+}
+
+static bool cloudflareTimeFromReply(const u8 *reply, size_t size,
+                                   const u8 *request, u64 roundTripNs, u64 *utc) {
+    if (size < 48 || (reply[0] & 7) != 4 || (reply[0] >> 6) == 3 ||
+        ((reply[0] >> 3) & 7) < 3 || ((reply[0] >> 3) & 7) > 4 ||
+        reply[1] == 0 || reply[1] > 15 || roundTripNs > 5000000000ULL ||
+        memcmp(reply + 24, request + 40, 8) != 0 ||
+        (ntpReadU32(reply + 40) == 0 && ntpReadU32(reply + 44) == 0) ||
+        (ntpReadU32(reply + 32) == 0 && ntpReadU32(reply + 36) == 0)) return false;
+
+    // unfold the ntp era so the clock keeps working after the 2036 rollover
+    u64 sent = ntpReadU32(reply + 40);
+    u64 received = ntpReadU32(reply + 32);
+    if (sent < 2208988800ULL) sent += 4294967296ULL;
+    if (received < 2208988800ULL) received += 4294967296ULL;
+    sent -= 2208988800ULL;
+    received -= 2208988800ULL;
+    if (sent < 1577836800ULL || sent > 4102444800ULL ||
+        received < 1577836800ULL || received > sent + 1) return false;
+
+    u64 sentNs = sent * 1000000000ULL +
+                 (((u64)ntpReadU32(reply + 44) * 1000000000ULL) >> 32);
+    u64 receivedNs = received * 1000000000ULL +
+                     (((u64)ntpReadU32(reply + 36) * 1000000000ULL) >> 32);
+    if (sentNs < receivedNs || sentNs - receivedNs > roundTripNs + 100000000ULL) return false;
+    u64 processingNs = sentNs - receivedNs;
+    u64 returnNs = roundTripNs > processingNs ? (roundTripNs - processingNs) / 2 : 0;
+    *utc = (sentNs + returnNs + 500000000ULL) / 1000000000ULL;
+    return true;
+}
+
+// query cloudflare directly; a failed request never changes the clock
+static void syncNetworkClock(void) {
+    Service timeService = {0}, networkClock = {0};
+    struct addrinfo hints = {0}, *addresses = NULL;
+    int fd = -1;
+    bool socketsReady = false;
+    const char *stage = "initialize sockets";
+    char message[192];
+    Result rc = socketInitializeDefault();
+    if (R_FAILED(rc)) goto cleanup;
+    socketsReady = true;
+
+    stage = "resolve time.cloudflare.com";
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+    if (getaddrinfo("time.cloudflare.com", "123", &hints, &addresses) != 0 || !addresses) goto network_error;
+    stage = "open cloudflare socket";
+    fd = socket(addresses->ai_family, addresses->ai_socktype, addresses->ai_protocol);
+    if (fd < 0) goto network_error;
+    struct timeval timeout = { .tv_sec = 5, .tv_usec = 0 };
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0 ||
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) goto network_error;
+    // a connected udp socket only accepts replies from the selected server
+    if (connect(fd, addresses->ai_addr, addresses->ai_addrlen) != 0) goto network_error;
+
+    u8 request[48] = {0}, reply[512];
+    request[0] = 0x23;
+    randomGet(request + 40, 8);
+    u64 started = armGetSystemTick();
+    stage = "send cloudflare request";
+    if (send(fd, request, sizeof(request), 0) != sizeof(request)) goto network_error;
+    stage = "wait for cloudflare reply";
+    ssize_t size = recv(fd, reply, sizeof(reply), 0);
+    if (size < 0) goto network_error;
+    u64 elapsed = armTicksToNs(armGetSystemTick() - started);
+    u64 utc = 0;
+    stage = "validate cloudflare reply";
+    if (!cloudflareTimeFromReply(reply, (size_t)size, request, elapsed, &utc)) goto network_error;
+
+    // open a private writable clock session without changing libnx's global session
+    stage = "open time:s";
+    rc = smGetService(&timeService, "time:s");
+    if (R_FAILED(rc)) goto cleanup;
+    stage = "open network clock";
+    rc = serviceDispatch(&timeService, 1,
+        .out_num_objects = 1, .out_objects = &networkClock);
+    if (R_FAILED(rc)) goto cleanup;
+    stage = "set network clock";
+    rc = serviceDispatchIn(&networkClock, 1, utc);
+    if (R_FAILED(rc)) goto cleanup;
+
+    stage = "verify network clock";
+    u64 actual = 0;
+    rc = serviceDispatchOut(&networkClock, 0, actual);
+    if (R_FAILED(rc)) goto cleanup;
+    if (actual < utc || actual - utc > 2) goto network_error;
+    nextendo_trace("time sync: network clock set from time.cloudflare.com");
+    goto cleanup;
+
+network_error:
+    rc = MAKERESULT(Module_Libnx, LibnxError_BadInput);
+cleanup:
+    serviceClose(&networkClock);
+    serviceClose(&timeService);
+    if (fd >= 0) close(fd);
+    if (addresses) freeaddrinfo(addresses);
+    if (socketsReady) socketExit();
+    if (R_FAILED(rc)) {
+        snprintf(message, sizeof(message), "time sync: %s failed (%08x); continuing", stage, (unsigned)rc);
+        nextendo_trace(message);
+    }
+}
+
 static void bootWorker(void *arg) {
-    (void)arg;
+    // skip the optional check if startup fell back to the ui thread
+    if (arg) syncNetworkClock();
     NextendoUpdate u = nextendo_update_check();
     nextendo_trace(u.available ? "14 update_check: MAJ DISPO -> homebrew verrouille (A inactif)"
                                : "14 update_check: a jour -> A actif");
@@ -315,7 +429,7 @@ int main(int argc, char **argv) {
     s_boot.mode = current;
     nextendo_trace("13 demarrage du thread reseau (picker deja affiche)");
     bool bootThreadOn = false;
-    if (R_SUCCEEDED(threadCreate(&s_bootThread, bootWorker, NULL, NULL, 0x20000, 0x2C, -2))
+    if (R_SUCCEEDED(threadCreate(&s_bootThread, bootWorker, &s_bootThread, NULL, 0x20000, 0x2C, -2))
         && R_SUCCEEDED(threadStart(&s_bootThread))) {
         bootThreadOn = true;
     } else {
