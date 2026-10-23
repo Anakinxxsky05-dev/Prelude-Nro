@@ -1,0 +1,51 @@
+{
+  "buildId": "ED8426574258F6728BE883C22010730D5D6DB531000000000000000000000000",
+  "stubStart": 13489408,
+  "verifyHook": 11321452,
+  "calls": [
+    11102368,
+    11086288,
+    11102416,
+    11102368,
+    11086288,
+    11102416,
+    11091200,
+    11218192
+  ],
+  "callSlots": [
+    64,
+    84,
+    104,
+    128,
+    148,
+    168,
+    192,
+    200
+  ],
+  "anchorLengths": [
+    831,
+    794
+  ],
+  "anchorHashes": [
+    "817d4a822fbbcdcf0a721563f83cec25be9ae8b2ba435d18bc10dfc2135bf064",
+    "0d8c98475124bf6a4ac0433bc2db66e08cc9ddbc39e1d1e7347d43b0f1c2f471"
+  ],
+  "sdkPinStart": 13491264,
+  "sdkPinOriginal": 11679344,
+  "sdkPinHook": 11672164,
+  "sdkPublicKeyPins": [
+    "89dee2bda0a92403835983ec792ce408c72fc3a350a3c675a33446a0363700f8",
+    "40b40a72f695e284fafc5409673c616e498552069ee2b8b46f5a67e7c0b93eab",
+    "a16c840dbd72eb67a3e121be9335ffb16d70f995b83d5b44ab8e52990338608f"
+  ],
+  "sha256": "7efef3ca550305bb16e3b78c612331e3cbc6d1668a74f09375c7009845dcb43a",
+  "originalX509VerificationRetained": true,
+  "inlineDiagnostics": false,
+  "paddingEnd": 13492224,
+  "retainedOriginalRecords": [
+    {
+      "offset": 11321720,
+      "hex": "8a070054"
+    }
+  ]
+}
