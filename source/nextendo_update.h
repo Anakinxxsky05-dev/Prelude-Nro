@@ -659,13 +659,9 @@
 // build 91: v4.0.6. UNO 1.1.17 online: host for the Ubisoft public services sign-in (public-ubiservices.ubi.com).
 //           The Nextendo UNO server answers UNO only and does not forward to Ubisoft, so other Ubisoft titles
 //           cannot go online while Nextendo mode is on.
-// build 92: v4.0.7. The hosts file is now refreshed at launch. It used to be written ONLY when the Nextendo mode
-//           was applied, so a player who updated Prelude kept the hosts of the previous version, without the
-//           lines of the games added since (UCH, UNO...), could not play and had to be sent the file by hand.
-//           When the Nextendo mode is already active, the hosts files that carry the Nextendo signature and
-//           differ from what this version writes are rewritten (same server IP as before), and the console
-//           asks for a restart, because the hosts are only read at boot. Files that are not ours, and missing
-//           ones, are never touched or created.
+// build 92: v4.0.7. Online-play invitations: host for the system invitation service (app.lp1.five.nintendo.net).
+//           It was missing, so inviting a friend from a game reached the real Nintendo server and failed
+//           with 2121-2906. Switch to Switch and Switch to Ryujinx/Citron invitations now go through Nextendo.
 #define NEXTENDO_BUILD 92
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
