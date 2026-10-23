@@ -67,6 +67,12 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   Innersloth's own servers. 18.0 and 19.0 are separate groups and do not play together. Other versions (17.x)
   need their own patch file. `api.epicgames.dev` also serves other Epic games; the
   Nextendo account service forwards those untouched to the real Epic.
+- **Nintendo Switch Online Classics** (NES 9.1.0, SNES 6.0.0, Game Boy 4.1.0, Game Boy Advance 3.3.0,
+  SEGA Genesis 3.1.1, Nintendo 64 4.2.0): one certificate-check ExeFS patch per application, one file per
+  Build ID (`nson64certbypass/`, `nsonescertbypass/`, `nsosnescertbypass/`, `nsogameboycertbypass/`,
+  `nsogbacertbypass/`, `nsogenesiscertbypass/`). Their NPLN servers are covered by the existing
+  `*.srv.nintendo.net` hosts. The patches only change which servers are trusted: they add no game content.
+  Which of these applications can actually go online depends on the Nextendo servers deployed for them.
 - **Pokémon Sword / Shield** (1.3.2): the NEX host for Y-Comm (link trades, link battles, Max Raid
   Battles, Surprise Trade and stamps), plus ExeFS patches (`pkmnswsh-nextendo/`) so connecting from
   Y-Comm no longer crashes on console.

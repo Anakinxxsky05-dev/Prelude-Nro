@@ -900,7 +900,11 @@ static const GamePatchDef s_gamePatchDefs[] = {
     { "Mario Party Jamboree",           "jamboree*" },
     { "Metal Gear Solid: Peace Walker", "mgspw*" },
     { "Overcooked 2",                   "overcooked2*" },
-    { "Nintendo Classics: Nintendo 64", "nson64*" },
+    // Les six applications Nintendo Classics partagent UNE ligne : la page de l'etat des correctifs n'a pas de
+    // defilement (13 lignes + le bouton tiennent exactement), une ligne par jeu aurait pousse le bouton hors
+    // de l'ecran. Les dossiers : nson64*, nsones*, nsosnes*, nsogameboy*, nsogba*, nsogenesis*.
+    { "Nintendo Classics: N64, NES, SNES, GB, GBA, Genesis",
+      "nson64*, nsones*, nsosnes*, nsogameboy*, nsogba*, nsogenesis*" },
     { "Pokemon: Scarlett & Violet (Gen 9)", "pkmn9*" },
     { "Pokemon Legends: Z-A",           "legendsza*, plza*" },
     { "Pokemon Sword & Shield",         "pkmnswsh*" },
