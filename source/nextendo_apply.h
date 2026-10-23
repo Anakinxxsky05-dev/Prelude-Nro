@@ -131,6 +131,11 @@ typedef struct {
 
 void nextendo_s3_status(NextendoS3Status *out);
 bool nextendo_provision_all_public(void);
+
+// Au demarrage, quand le mode Nextendo est deja actif : remet les hosts de la carte au contenu de CETTE version
+// de Prelude s'ils sont a nous (signature Nextendo) et different. Renvoie le nombre de fichiers reecrits (0 =
+// rien a faire) ; les hosts ne sont lus qu'au demarrage de la console, donc > 0 impose un redemarrage.
+int nextendo_hosts_refresh(void);
 void nextendo_purge_legacy_n64_patch(void);
 
 // --- Sauvegarde des hosts dns.mitm que l'utilisateur avait AVANT Prelude. ---

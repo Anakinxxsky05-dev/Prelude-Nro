@@ -365,6 +365,11 @@ int main(int argc, char **argv) {
     bool newsPatchAvant = current == CHOICE_NEXTENDO &&
         stat("sdmc:/atmosphere/exefs_patches/nextendo_bcat_signature", &stNews) == 0;
     if (current == CHOICE_NEXTENDO) nextendo_provision_all_public();
+    // Les hosts, eux, n'etaient ecrits qu'a l'application du mode : un Prelude mis a jour gardait ceux de la
+    // version precedente, sans les lignes des jeux ajoutes depuis (UCH, UNO...). Un joueur "a jour" ne pouvait
+    // pas jouer et il fallait lui envoyer le fichier. On les remet donc au contenu de cette version, s'ils sont
+    // a nous et different ; ils ne sont lus qu'au demarrage de la console, d'ou le redemarrage.
+    int hostsRafraichis = (current == CHOICE_NEXTENDO) ? nextendo_hosts_refresh() : 0;
     if (current == CHOICE_NEXTENDO)
         nextendo_trace(newsPatchAvant ? "news: patch deja sur la carte, rien a purger"
                                       : "news: patch absent avant ce lancement");
@@ -381,7 +386,7 @@ int main(int argc, char **argv) {
     int  railSel = RAIL_MODE;   // section du rail
     int  paneSel = 0;           // ligne du panneau
     bool paneFocus = false;     // false = les fleches agissent sur le rail
-    int  screen = newsRedemarrer ? SCREEN_NEWS_REBOOT : SCREEN_PICKER;
+    int  screen = (newsRedemarrer || hostsRafraichis > 0) ? SCREEN_NEWS_REBOOT : SCREEN_PICKER;
     // UNE SEULE FOIS, au tout premier lancement : on propose de sauvegarder les hosts
     // dns.mitm que l'utilisateur avait AVANT nous. C'est la SEULE occasion de le faire —
     // des qu'un mode est applique, les fichiers d'origine sont ecrases et il n'y a plus
@@ -747,8 +752,11 @@ int main(int argc, char **argv) {
                                  lang_str(STR_MODS_BODY2));
 
         } else if (screen == SCREEN_NEWS_REBOOT) {
-            // Redemarrage obligatoire : le patch du module bcat ne se charge qu'au demarrage.
-            ui_draw_result(lang_str(STR_NEWS_TITLE), lang_str(STR_NEWS_CLEANED), true);
+            // Redemarrage obligatoire : le patch du module bcat et les hosts ne se chargent qu'au demarrage.
+            if (hostsRafraichis > 0)
+                ui_draw_result(lang_str(STR_HOSTS_TITLE), lang_str(STR_HOSTS_UPDATED), true);
+            else
+                ui_draw_result(lang_str(STR_NEWS_TITLE), lang_str(STR_NEWS_CLEANED), true);
             if (k & HidNpadButton_A) {
                 audio_exit();
                 nextendo_reboot();

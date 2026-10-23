@@ -517,11 +517,18 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
             for (int i = 0; i < s3->installedGameCount; i++) {
                 const NextendoGamePatchStatus *gp = &s3->installedGames[i];
                 char folderList[192] = "";
-                for (int f = 0; f < gp->folderCount; f++) {
+                // Au-dela de trois dossiers la ligne depasserait l'ecran : on montre le premier et le reste en nombre.
+                int shown = gp->folderCount > 3 ? 1 : gp->folderCount;
+                for (int f = 0; f < shown; f++) {
                     if (f > 0) strncat(folderList, ", ", sizeof(folderList) - strlen(folderList) - 1);
                     strncat(folderList, "\"", sizeof(folderList) - strlen(folderList) - 1);
                     strncat(folderList, gp->folders[f], sizeof(folderList) - strlen(folderList) - 1);
                     strncat(folderList, "\"", sizeof(folderList) - strlen(folderList) - 1);
+                }
+                if (shown < gp->folderCount) {
+                    char more[16];
+                    snprintf(more, sizeof(more), " +%d", gp->folderCount - shown);
+                    strncat(folderList, more, sizeof(folderList) - strlen(folderList) - 1);
                 }
                 char patchStr[32];
                 snprintf(patchStr, sizeof(patchStr),
