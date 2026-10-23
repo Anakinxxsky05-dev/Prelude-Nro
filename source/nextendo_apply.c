@@ -266,10 +266,13 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s matchmaker-eu.among.us\n", ip);            EMIT_H(line);
     snprintf(line, sizeof(line), "%s matchmaker-as.among.us\n", ip);            EMIT_H(line);
 
-    EMIT_H("\n# --- UNO (Ubisoft public services sign-in; the Nextendo server answers UNO only) ---\n");
-    // public-ubiservices.ubi.com is shared by every Ubisoft game. The Nextendo server does not forward to Ubisoft,
-    // so other Ubisoft titles cannot go online while Nextendo mode is on.
+    EMIT_H("\n# --- UNO / Just Dance 2022 (Ubisoft services, routed by application) ---\n");
+    // The shared REST frontend selects JD2022 by its application ID and preserves UNO.
     snprintf(line, sizeof(line), "%s public-ubiservices.ubi.com\n", ip);       EMIT_H(line);
+    snprintf(line, sizeof(line), "%s public-ws-ubiservices.ubi.com\n", ip);    EMIT_H(line);
+    snprintf(line, sizeof(line), "%s jd.ubisoft.com\n", ip);                EMIT_H(line);
+    snprintf(line, sizeof(line), "%s phonescoring.jd.ubisoft.com\n", ip);   EMIT_H(line);
+    snprintf(line, sizeof(line), "%s v2.phonescoring.jd.ubisoft.com\n", ip); EMIT_H(line);
 
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
@@ -893,6 +896,7 @@ void nextendo_backup_set_use_for_nintendo(bool on) {
 //  les fichiers .ips presents.
 // ============================================================================
 static const GamePatchDef s_gamePatchDefs[] = {
+    { "Just Dance 2022",                "jd22*" },
     { "Super Mario Wonder",             "wonder*" },
     { "Splatoon 3",                     "s3*" },
     { "Crash Team Racing",              "dwctr*" },
