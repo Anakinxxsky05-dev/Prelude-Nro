@@ -26,7 +26,7 @@ typedef enum { BOOT_UNKNOWN = -1, BOOT_SYSMMC = 0, BOOT_EMUMMC = 1 } BootType;
 void nextendo_trace(const char *step);
 #define NEXTENDO_TRACE_PATH "sdmc:/prelude_trace.txt"
 
-// Detecte le storage de boot (cosmetique : on ecrit les 2 fichiers de toute facon).
+// Detecte le storage de boot; les hosts sont modifies seulement pour cette NAND.
 BootType nextendo_detect_boot(void);
 
 // Mode ACTUELLEMENT charge : 0 = NEXTENDO, 1 = NINTENDO, 2 = CAPTURE (memes valeurs que
@@ -34,7 +34,7 @@ BootType nextendo_detect_boot(void);
 // du mode CAPTURE (qui exige aussi les patches disable_ca_verification sur la carte).
 int nextendo_current_mode(void);
 
-// Mode NEXTENDO : ecrit les hosts (sysmmc.txt + emummc.txt) + enable_dns_mitm=1.
+// Mode NEXTENDO : ecrit les hosts de la NAND courante + enable_dns_mitm=1.
 // ip : IP du serveur à utiliser (NEXTENDO_SERVER_IP_DEFAULT ou NEXTENDO_SERVER_IP_ALT).
 bool nextendo_apply_nextendo_ip(const char *ip);
 

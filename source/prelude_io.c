@@ -42,7 +42,11 @@ bool prelude_write_config(const char *path, const char *contents, bool (*commit)
     free(old);
     struct stat st;
     if (stat(backup, &st) == 0) {
-        if (!had_old || remove(backup) || !commit()) return false;
+        // A mode switch can deliberately remove its hosts file while keeping
+        // the recovery sibling. Preserve that sibling when creating the file
+        // again; its presence is not an SD write failure.
+        if (!S_ISREG(st.st_mode)) return false;
+        if (had_old && (remove(backup) || !commit())) return false;
     } else if (errno != ENOENT) return false;
     FILE *f = fopen(staged, "wb");
     if (!f) return false;
