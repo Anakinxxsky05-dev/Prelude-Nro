@@ -43,3 +43,19 @@ as the same defect. A failed direct BCAT HTTP probe is not evidence of a TLS
 failure on the account endpoint. Do not enable the HOS>=23 fallback module as a
 workaround: the existing known-crash guard remains intact. New SD trace entries
 include path/errno and filesystem commit result, not credentials or file contents.
+
+
+## 4.0.13 policy correction
+
+The user clarified that Nintendo mode means disconnecting Nextendo while keeping
+Nintendo DNS blocked. Unlike 4.0.12, normal mode switches append loopback rules
+for Nintendo services after restored user entries, regardless of the PRODINFO
+choice. The current NAND only is modified. DNS interception remains enabled.
+The explicitly warned, hidden maintainer capture mode retains its separate DNS
+policy; it is not selected by either normal Nintendo/Nextendo mode action.
+
+`test_nintendo_dns_block.py` covers all 35 original 90DNS Tester domains plus
+account/telemetry endpoints with the real production generated hosts and
+Atmosphere's documented wildcard precedence. Physical green/red results remain
+to be checked after reboot; on firmware 23.x this also requires the upstream
+Atmosphere 1.12.1 resolver fix. DNS blocking is not a ban-free guarantee.

@@ -15,6 +15,7 @@ prefix=r'''
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include "prelude_dns_block.h"
 #define FS_MAX_PATH 1024
 #define NEXTENDO_HOSTS_SYSMMC "sdmc:/atmosphere/hosts/sysmmc.txt"
 #define NEXTENDO_HOSTS_EMUMMC "sdmc:/atmosphere/hosts/emummc.txt"
@@ -58,7 +59,7 @@ static bool captureFlagPresent(void){return false;}
 static bool capturePatchesPresent(void){return false;}
 static char*nextendo_hosts_build(const char*ip){char text[256];snprintf(text,sizeof(text),"%s\n%s accounts.nintendo.com\n",NEXTENDO_HOSTS_HEADER_MARK,ip);return strdup(text);}
 '''
-names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('nextendo_apply_nextendo_ip','bool '),('nextendo_apply_nintendo_ex','bool ')]
+names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('nextendo_apply_nextendo_ip','bool '),('applyNintendoPolicy','static bool '),('nextendo_apply_nintendo_ex','bool ')]
 # Skip forward declarations and locate the body definition, not the prototype.
 def definition(name,decl):
  global source
@@ -81,6 +82,8 @@ int main(void){
   assert(!strcmp(get(sys),"# Nintendo sysMMC user file\n"));assert(!strcmp(get(def),"# shared user defaults\n"));
   assert(nextendo_apply_nintendo_ex(true));assert(nextendo_current_mode()==1);
   assert(!strstr(get(emu),NEXTENDO_SERVER_IP_DEFAULT));
+  assert(strstr(get(emu),"127.0.0.1 nintendo.*"));
+  assert(nextendo_apply_nintendo_ex(false));assert(strstr(get(emu),"127.0.0.1 nintendo.*"));
  }
  // The other NAND's Nextendo mode must not change this NAND's indicator.
  put(sys,NEXTENDO_SERVER_IP_DEFAULT);assert(nextendo_current_mode()==1);
@@ -91,7 +94,7 @@ int main(void){
  put(specific,"# custom per-emummc file\n");
  assert(nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));assert(fileHas(specific,NEXTENDO_SERVER_IP_DEFAULT));
  assert(!fileHas(emu,NEXTENDO_SERVER_IP_DEFAULT));
- assert(nextendo_apply_nintendo_ex(true));assert(!strcmp(get(specific),"# custom per-emummc file\n"));
+ assert(nextendo_apply_nintendo_ex(true));assert(strstr(get(specific),"# custom per-emummc file\n"));assert(strstr(get(specific),"127.0.0.1 nintendo.*"));
  assert(!strcmp(get(def),NEXTENDO_SERVER_IP_DEFAULT));assert(!strcmp(get(sys),NEXTENDO_SERVER_IP_DEFAULT));
  boot=BOOT_SYSMMC;prodinfoWrites=0;
  assert(nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));assert(prodinfoWrites==0);
@@ -99,6 +102,8 @@ int main(void){
  assert(nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));cleanupFails=true;
  assert(!nextendo_apply_nintendo_ex(true));assert(nextendo_current_mode()==0);
  cleanupFails=false;assert(nextendo_apply_nintendo_ex(true));
+ assert(applyNintendoPolicy(true,false));assert(!strstr(get(sys),"PRELUDE NINTENDO DNS BLOCK"));
+ assert(nextendo_apply_nintendo_ex(false));assert(strstr(get(sys),"PRELUDE NINTENDO DNS BLOCK"));
  boot=BOOT_UNKNOWN;int before=count;
  assert(!nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));assert(!nextendo_apply_nintendo_ex(true));assert(before==count);
  puts("PASS: repeated mode switches; NAND isolation; shared default preserved; emuMMC ID precedence; unknown boot refused; sysMMC does not alter emuMMC PRODINFO");
@@ -107,5 +112,5 @@ int main(void){
 with tempfile.TemporaryDirectory(prefix='prelude-mode-') as directory:
  folder=Path(directory);test=folder/'test.c';binary=folder/('test.exe' if sys.platform=='win32' else 'test')
  test.write_text(prefix+'\n'.join(definition(n,d) for n,d in names)+main,encoding='utf-8')
- subprocess.run([sys.argv[1] if len(sys.argv)>1 else 'cc','-std=gnu11','-Wall','-Wextra','-Werror',str(test),'-o',str(binary)],check=True)
+ subprocess.run([sys.argv[1] if len(sys.argv)>1 else 'cc','-std=gnu11','-Wall','-Wextra','-Werror','-I',str(root/'source'),str(test),'-o',str(binary)],check=True)
  subprocess.run([str(binary)],cwd=folder,check=True)

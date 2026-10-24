@@ -41,6 +41,7 @@ jobs:
           /tmp/test-http
           python3 tools/test_config_editors.py
           python3 tools/test_mode_isolation.py
+          python3 tools/test_nintendo_dns_block.py
           python3 tools/test_download_stream.py
 
   build:

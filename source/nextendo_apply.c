@@ -34,6 +34,7 @@
 
 #include "nextendo_apply.h"
 #include "prelude_io.h"
+#include "prelude_dns_block.h"
 #include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
@@ -1222,7 +1223,7 @@ bool nextendo_apply_nintendo(void) {
     return nextendo_apply_nintendo_ex(true);
 }
 
-bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
+static bool applyNintendoPolicy(bool blankProdinfo, bool blockNintendoDNS) {
     if (!modeConfigReadable()) return false;
     char active[FS_MAX_PATH], backup[FS_MAX_PATH];
     if (!activeHostsPath(active,sizeof(active)) || !activeHostsBackupPath(active,backup,sizeof(backup))) return false;
@@ -1231,7 +1232,7 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // Keep an explicit Nintendo file, even when empty, so a legacy Nextendo
     // default.txt cannot become the active file after this switch.
     char *restored = NULL; size_t restoredLength = 0;
-    if (nextendo_backup_use_for_nintendo() && backupCandidateOk(backup) &&
+    if (blockNintendoDNS && nextendo_backup_use_for_nintendo() && backupCandidateOk(backup) &&
         !prelude_read_config(backup,&restored,&restoredLength)) return false;
     // Shared default and the other NAND's hosts remain unchanged.
     nextendo_purge_leaks();
@@ -1275,23 +1276,8 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     nextendo_trace("24c ssbu_quickplay retire");
     nextendo_trace("24e account_link retire");
 
-    // TELEMETRIE. L'ancien code posait enable_dns_mitm=0, ce qui desactivait du meme coup le
-    // blocage de telemetrie natif d'Atmosphere : la console se retrouvait MOINS protegee qu'une
-    // install d'origine. Doc Atmosphere : "By default, atmosphere redirects resolution requests
-    // for official telemetry servers, redirecting them to a loopback address." Nos hosts etant
-    // partis, ce sont les entrees par defaut d'Atmosphere qui s'appliquent. Elles sont COMPILEES
-    // DANS le sysmodule DNS.mitm (receive-%.dg/er.srv.nintendo.net -> 127.0.0.1), pas lues depuis
-    // un fichier : add_defaults_to_dns_hosts=1 les fusionne avec la config hosts active, donc le
-    // blocage vaut des le boot meme si /atmosphere/hosts/ est vide. Ne PAS ecrire nous-memes un
-    // default.txt "de securite" : ce fichier appartient a l'utilisateur (beaucoup y gardent leurs
-    // propres entrees), il survivrait a la desinstallation de Prelude sur une carte censee etre
-    // propre, et notre copie de la liste deriverait derriere celle d'Atmosphere.
-    // On laisse donc le DNS-MITM ACTIF et
-    // on remet add_defaults=1 : la telemetrie est bloquee, tout le reste resout normalement,
-    // l'eShop continue de marcher (la raison d'etre du mode Nintendo).
-    // Garde-fou : si nos hosts resistent a l'effacement, garder le DNS-MITM actif redirigerait
-    // en douce vers nos serveurs une console censee etre sur Nintendo. Dans ce cas seulement, on
-    // retombe sur l'ancien comportement (dns_mitm=0), qui neutralise nos hosts a coup sur.
+    // Keep Atmosphere DNS interception and telemetry defaults enabled. The
+    // explicit hosts file written below adds the official Nintendo DNS block.
     bool i = iniSetDnsMitm(true, true);
     nextendo_trace(i ? "25 Nintendo DNS settings prepared" : "25 Nintendo DNS settings failed");
 
@@ -1301,9 +1287,12 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     bool p = nextendo_detect_boot() != BOOT_EMUMMC || iniSetBlankProdinfoEmummc(blankProdinfo);
     nextendo_trace(blankProdinfo ? "26 blank_prodinfo_emummc=1"
                                  : "26 blank_prodinfo_emummc=0 (choix du joueur)");
-    // Do not enable official routing until shared resource cleanup/settings succeeded.
+    // Install the selected DNS policy only after resource cleanup/settings succeed.
     if (!i || !p) { free(restored); return false; }
-    bool hostsWritten=writeTextFile(active,restored ? restored : "# Prelude Nintendo mode: use normal DNS with Atmosphere telemetry defaults.\n");
+    char *blocked = blockNintendoDNS ? prelude_nintendo_block_hosts(restored) : NULL;
+    if (blockNintendoDNS && !blocked) { free(restored); return false; }
+    bool hostsWritten=writeTextFile(active,blocked ? blocked : (restored ? restored : "# Prelude explicit diagnostic capture DNS.\n"));
+    free(blocked);
     free(restored);
     if (!hostsWritten) return false;
     bool hostsGone = !fileHas(active,NEXTENDO_SERVER_IP_DEFAULT) && !fileHas(active,NEXTENDO_SERVER_IP_ALT) && !fileHas(active,NEXTENDO_HOSTS_HEADER_MARK);
@@ -1311,6 +1300,10 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     bool durable = commitConfig();
     nextendo_trace(durable ? "27 apply_nintendo: complete; reboot required" : "27 apply_nintendo: commit failed");
     return durable;
+}
+
+bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
+    return applyNintendoPolicy(blankProdinfo, true);
 }
 
 // --- Mode CAPTURE (cache) : vrai Nintendo + patches disable_ca_verification du ssl ---
@@ -1325,7 +1318,7 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
 // d'avertissement le dit, et le mode n'est accessible que par une combinaison cachee.
 bool nextendo_apply_capture(void) {
     nextendo_trace("40 apply_capture: entree");
-    if (!nextendo_apply_nintendo()) {
+    if (!applyNintendoPolicy(true, false)) {
         nextendo_trace("41 apply_capture: apply_nintendo a echoue -> annulation");
         return false;
     }

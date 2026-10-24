@@ -672,7 +672,9 @@
 // build 97: v4.0.12. Recover mode reapplication with an orphaned configuration
 // backup; isolate hosts by the current NAND and honor emuMMC-ID precedence.
 // Keep shared default hosts unchanged and report concrete SD failure paths.
-#define NEXTENDO_BUILD 97
+// build 98: v4.0.13. Nintendo mode explicitly blocks official Nintendo DNS;
+// PRODINFO choice does not disable the block. Nextendo mode restores redirects.
+#define NEXTENDO_BUILD 98
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -688,7 +690,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 12
+#define NEXTENDO_VERSION_PATCH 13
 #endif
 
 typedef struct {
