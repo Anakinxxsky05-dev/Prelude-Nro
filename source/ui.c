@@ -40,6 +40,7 @@ static FT_Face     s_cjk_faces[PlSharedFontType_Total]; // CJK fallback (system 
 static int         s_cjk_count;                         // number of loaded fallback faces
 static u8         *s_bBuf, *s_sBuf, *s_rBuf;  // buffers TTF (gardés en vie)
 static u8         *s_logo, *s_ninten;         // images RGBA 200x200
+static bool s_framebufferReady, s_plReady;
 
 static inline u32 packColor(Color c) { return RGBA8(c.r, c.g, c.b, c.a); }
 
@@ -316,7 +317,10 @@ static u8 *loadImg(const char *path) {
 // ============================================================
 bool ui_init(void) {
     if (FT_Init_FreeType(&s_ft)) return false;
-    if (!loadFace("romfs:/Poppins-Bold.ttf", &s_bold, &s_bBuf)) return false;
+    if (!loadFace("romfs:/Poppins-Bold.ttf", &s_bold, &s_bBuf)) {
+        nextendo_trace("UI: required Poppins-Bold.ttf could not be loaded");
+        return false;
+    }
     if (!loadFace("romfs:/Poppins-SemiBold.ttf", &s_semi, &s_sBuf)) s_semi = s_bold;
     if (!loadFace("romfs:/Poppins-Regular.ttf", &s_reg, &s_rBuf)) s_reg = s_bold;
 
@@ -325,6 +329,7 @@ bool ui_init(void) {
     // ExtendedChineseSimplified, etc.). We load them all as fallback candidates.
     s_cjk_count = 0;
     if (R_SUCCEEDED(plInitialize(PlServiceType_User))) {
+        s_plReady = true;
         PlFontData fonts[PlSharedFontType_Total];
         s32 total = 0;
         if (R_SUCCEEDED(plGetSharedFont(SetLanguage_ZHCN, fonts, PlSharedFontType_Total, &total))) {
@@ -340,18 +345,24 @@ bool ui_init(void) {
 
     s_logo   = loadImg("romfs:/logo.rgba");
     s_ninten = loadImg("romfs:/nintendo.rgba");
-    framebufferCreate(&s_fb, nwindowGetDefault(), FB_W, FB_H, PIXEL_FORMAT_RGBA_8888, 2);
-    framebufferMakeLinear(&s_fb);
+    Result rc = framebufferCreate(&s_fb, nwindowGetDefault(), FB_W, FB_H, PIXEL_FORMAT_RGBA_8888, 2);
+    if (R_FAILED(rc)) { nextendo_trace("UI: framebufferCreate failed"); return false; }
+    s_framebufferReady = true;
+    rc = framebufferMakeLinear(&s_fb);
+    if (R_FAILED(rc)) { nextendo_trace("UI: framebufferMakeLinear failed"); return false; }
     return true;
 }
 
 void ui_exit(void) {
-    framebufferClose(&s_fb);
+    if (s_framebufferReady) { framebufferClose(&s_fb); s_framebufferReady = false; }
     if (s_logo) free(s_logo);
     if (s_ninten) free(s_ninten);
     for (int i = 0; i < s_cjk_count; i++) FT_Done_Face(s_cjk_faces[i]);
-    FT_Done_FreeType(s_ft);
-    plExit();
+    if (s_reg && s_reg != s_bold) FT_Done_Face(s_reg);
+    if (s_semi && s_semi != s_bold) FT_Done_Face(s_semi);
+    if (s_bold) FT_Done_Face(s_bold);
+    if (s_ft) FT_Done_FreeType(s_ft);
+    if (s_plReady) plExit();
     if (s_bBuf) free(s_bBuf);
     if (s_sBuf) free(s_sBuf);
     if (s_rBuf) free(s_rBuf);

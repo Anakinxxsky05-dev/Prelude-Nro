@@ -25,7 +25,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  updater-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify update failures preserve the installed NRO
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror tools/test_safe_update.c -o /tmp/test-safe-update
+          /tmp/test-safe-update
+          cc -std=gnu11 -Wall -Wextra -Werror -I source tools/test_hosts_refresh.c -o /tmp/test-hosts-refresh
+          /tmp/test-hosts-refresh
+
   build:
+    needs: updater-tests
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:latest

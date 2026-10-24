@@ -356,7 +356,7 @@ static void extract_location(const unsigned char *hdr, size_t hlen, char *out, s
             size_t start = k;
             while (k < hlen && hdr[k]!='\r' && hdr[k]!='\n') k++;
             size_t vlen = k - start;
-            if (vlen >= cap) vlen = cap - 1;
+            if (vlen >= cap) return;
             memcpy(out, hdr + start, vlen);
             out[vlen] = '\0';
             return;
@@ -378,12 +378,18 @@ long net_https_get_to_file(const char *host, const char *path,
     strncpy(cur_host, host,  sizeof(cur_host) - 1); cur_host[sizeof(cur_host)-1] = '\0';
     strncpy(cur_path, path,  sizeof(cur_path) - 1); cur_path[sizeof(cur_path)-1] = '\0';
 
-    for (int attempt = 0; attempt < 2; attempt++) {
+    for (int attempt = 0; attempt < 3; attempt++) {
         const char *ip = resolve_host(cur_host);
         if (!ip) { *out_status = NET_ERR_CONNECT; return -1; }
 
         int fd = tcp_connect(ip, 443);
         if (fd < 0) { *out_status = NET_ERR_CONNECT; return -1; }
+
+        // This is an idle timeout, not a limit on total download duration.
+        // The default five seconds is too short for a stalled release CDN read.
+        struct timeval download_timeout = { .tv_sec = 30, .tv_usec = 0 };
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &download_timeout, sizeof(download_timeout));
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &download_timeout, sizeof(download_timeout));
 
         SslContext sslCtx;
         SslConnection sslConn;
@@ -414,8 +420,14 @@ long net_https_get_to_file(const char *host, const char *path,
                           "Accept: */*\r\nConnection: close\r\n\r\n",
                           cur_path, cur_host);
         u32 written = 0;
+        if (rl < 0 || (size_t)rl >= sizeof(req)) {
+            sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
+            if (out_fd >= 0) close(out_fd);
+            *out_status = NET_ERR_PROTO; return -1;
+        }
         rc = sslConnectionWrite(&sslConn, req, rl, &written);
         if (R_FAILED(rc) || written != (u32)rl) {
+            g_net_ssl_rc = rc;
             sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
             if (out_fd >= 0) close(out_fd);
             *out_status = NET_ERR_PROTO; return -1;
@@ -435,7 +447,7 @@ long net_https_get_to_file(const char *host, const char *path,
         for (;;) {
             u32 read = 0;
             rc = sslConnectionRead(&sslConn, rbuf, sizeof(rbuf), &read);
-            if (R_FAILED(rc)) { sslError = true; break; }
+            if (R_FAILED(rc)) { g_net_ssl_rc = rc; sslError = true; break; }
             if (read == 0) break;
             if (inBody) {
                 // Redirect body is discarded (typically empty or small HTML)
@@ -448,6 +460,7 @@ long net_https_get_to_file(const char *host, const char *path,
                 }
                 bodyBytes += read;
                 if (onProgress && !is_redirect) onProgress(bodyBytes, contentLen > 0 ? contentLen : 0);
+                if (contentLen >= 0 && bodyBytes >= contentLen) break;
                 continue;
             }
             size_t i = 0;
@@ -490,6 +503,7 @@ long net_https_get_to_file(const char *host, const char *path,
                     // Premier signalement des l'en-tete lue : la barre part a 0 % avec la
                     // taille totale connue, au lieu d'apparaitre seulement au 2e paquet.
                     if (onProgress) onProgress(bodyBytes, contentLen > 0 ? contentLen : 0);
+                    if (contentLen >= 0 && bodyBytes >= contentLen) break;
                 }
             }
         }
@@ -503,8 +517,8 @@ long net_https_get_to_file(const char *host, const char *path,
         if (out_fd >= 0) close(out_fd);
         *out_status = status;
 
-        // Follow one redirect (GitHub releases -> CDN)
-        if (is_redirect && attempt == 0 && location[0]) {
+        // Bound redirect chains; never silently accept a truncated Location.
+        if (is_redirect && attempt < 2 && location[0]) {
             char new_host[256] = {0};
             char new_path[2048] = {0};
             if (sscanf(location, "https://%255[^/]%2047s", new_host, new_path) < 2)
@@ -512,8 +526,7 @@ long net_https_get_to_file(const char *host, const char *path,
             strncpy(cur_host, new_host, sizeof(cur_host) - 1); cur_host[sizeof(cur_host)-1] = '\0';
             strncpy(cur_path, new_path, sizeof(cur_path) - 1); cur_path[sizeof(cur_path)-1] = '\0';
             // Truncate file: redirect body (HTML) must not prefix the real download
-            rewind(out);
-            ftruncate(fileno(out), 0);
+            if (fflush(out) || ftruncate(fileno(out), 0) || fseek(out, 0, SEEK_SET)) return -2;
             continue;
         }
 

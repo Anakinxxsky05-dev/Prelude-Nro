@@ -669,7 +669,7 @@
 //           invitation host and its build 92 remain intact; this is one new build, not a second v4.0.7.
 // build 94: v4.0.9. Adds the exact GBA 3.4.0 ExeFS compatibility patch while retaining
 //           GBA 3.3.0. Increments the release semver so the automatic updater offers this build.
-#define NEXTENDO_BUILD 94
+#define NEXTENDO_BUILD 95
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -685,7 +685,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 9
+#define NEXTENDO_VERSION_PATCH 10
 #endif
 
 typedef struct {
@@ -722,6 +722,7 @@ typedef void (*nextendo_progress_fn)(nextendo_update_phase phase, long done, lon
 // Telecharge le nouveau .nro et remplace celui qu'on execute (via un .new + rename).
 // `onProgress` peut etre NULL ; sinon il est appele assez souvent pour qu'un ecran
 // rafraichi dessus ne paraisse jamais fige.
+bool nextendo_update_requires_restart(void);
 nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progress_fn onProgress);
 
 #endif // NEXTENDO_UPDATE_H
