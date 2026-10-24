@@ -101,7 +101,7 @@ bool nextendo_account_link_is_recommended(void);
 // Vrai si le firmware rend le fallback inutilisable (HOS >= 23.0.0, issue #42).
 bool nextendo_account_link_fw_blocked(void);
 bool nextendo_account_link_install(void);
-void nextendo_account_link_remove(void);
+bool nextendo_account_link_remove(void);
 
 // --- Etat des correctifs de jeux (Game Patches) poses sur la carte SD ---
 #define NEXTENDO_MAX_GAME_FOLDERS 8

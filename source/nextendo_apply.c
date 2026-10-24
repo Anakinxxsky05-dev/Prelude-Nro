@@ -1271,9 +1271,12 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // retelechargent au demarrage suivant (le patch de signature vient d'etre retire avec le
     // reste de romfs:/sd).
     nextendo_news_purge("nintendo");
-    removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:"); // SSBU online-deluxe mod
-    removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:"); // SMB35 batailles speciales
-    nextendo_account_link_remove();                    // sysmodule network_mitm v2 fallback
+    bool quickplayRemoved = removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:");
+    bool battleRemoved = removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:");
+    bool accountRemoved = nextendo_account_link_remove();
+    if (!quickplayRemoved || !battleRemoved || !accountRemoved) {
+        free(restored); nextendo_trace("mode: Nintendo cleanup incomplete; routing unchanged"); return false;
+    }
     nextendo_trace("24d smb35_spbattle retire");
     nextendo_trace("24c ssbu_quickplay retire");
     nextendo_trace("24e account_link retire");
@@ -1829,13 +1832,17 @@ bool nextendo_account_link_install(void) {
     return true;
 }
 
-void nextendo_account_link_remove(void) {
-    remove(ACCOUNT_LINK_BOOTFLAG);
-    remove(ACCOUNT_LINK_DIR "/mitm.lst");
-    remove(ACCOUNT_LINK_DIR "/exefs.nsp");
+bool nextendo_account_link_remove(void) {
+    bool ok = true;
+    const char *files[] = {ACCOUNT_LINK_BOOTFLAG, ACCOUNT_LINK_DIR "/mitm.lst", ACCOUNT_LINK_DIR "/exefs.nsp"};
+    for (unsigned i=0; i<sizeof(files)/sizeof(files[0]); ++i) {
+        if (remove(files[i]) != 0 && errno != ENOENT) ok = false;
+        if (fileExists(files[i])) ok = false;
+    }
     rmdir(ACCOUNT_LINK_FLAGS);
     rmdir(ACCOUNT_LINK_DIR);
-    iniSetNetworkMitm(false);
-    fsdevCommitDevice("sdmc");
-    nextendo_trace("24e account_link retire");
+    if (!iniSetNetworkMitm(false)) ok = false;
+    if (!commitConfig()) ok = false;
+    nextendo_trace(ok ? "24e account_link removed" : "24e account_link removal failed");
+    return ok;
 }

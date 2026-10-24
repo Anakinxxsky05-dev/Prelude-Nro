@@ -46,8 +46,9 @@ static bool nextendo_news_patch_for_console(void){return false;}
 static int nextendo_news_purge(const char*p){(void)p;return 0;}
 static void nextendo_purge_leaks(void){}
 static int nextendo_purge_stale(void){return 0;}
-static bool removeTreeRomfs(const char*a,const char*b){(void)a;(void)b;return true;}
-static void nextendo_account_link_remove(void){}
+static bool cleanupFails;
+static bool removeTreeRomfs(const char*a,const char*b){(void)a;(void)b;return !cleanupFails;}
+static bool nextendo_account_link_remove(void){return !cleanupFails;}
 static int prodinfoWrites;
 static bool iniSetBlankProdinfoEmummc(bool b){(void)b;prodinfoWrites++;return true;}
 static bool iniSetDnsMitm(bool a,bool b){(void)a;(void)b;return true;}
@@ -94,6 +95,9 @@ int main(void){
  boot=BOOT_SYSMMC;prodinfoWrites=0;
  assert(nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));assert(prodinfoWrites==0);
  assert(nextendo_apply_nintendo_ex(true));assert(prodinfoWrites==0);assert(nextendo_current_mode()==1);
+ assert(nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));cleanupFails=true;
+ assert(!nextendo_apply_nintendo_ex(true));assert(nextendo_current_mode()==0);
+ cleanupFails=false;assert(nextendo_apply_nintendo_ex(true));
  boot=BOOT_UNKNOWN;int before=count;
  assert(!nextendo_apply_nextendo_ip(NEXTENDO_SERVER_IP_DEFAULT));assert(!nextendo_apply_nintendo_ex(true));assert(before==count);
  puts("PASS: repeated mode switches; NAND isolation; shared default preserved; emuMMC ID precedence; unknown boot refused; sysMMC does not alter emuMMC PRODINFO");
