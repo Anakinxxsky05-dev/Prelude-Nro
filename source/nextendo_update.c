@@ -217,9 +217,9 @@ nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progres
         g_net_ssl_rc = 0;
         len = net_https_get_to_file(host, path, f, &status,
                                    onProgress ? progressRelay : NULL);
-        char message[128];
-        snprintf(message, sizeof(message), "update download: attempt=%d HTTP=%d SSL=%08lx bytes=%ld",
-                 attempt + 1, status, (unsigned long)g_net_ssl_rc, len);
+        char message[384];
+        snprintf(message, sizeof(message), "update download: attempt=%d host=%s stage=%s HTTP=%d SSL=%08lx bytes=%ld",
+                 attempt + 1, g_net_download_host, g_net_download_stage, status, (unsigned long)g_net_ssl_rc, len);
         nextendo_trace(message);
         if (len == -2 || (len >= 0 && status == 200)) break;
         if (attempt == 1 || (status >= 400 && status < 500)) break;

@@ -58,5 +58,7 @@ long net_https_get_to_file(const char *host, const char *path,
 
 // Dernier Result libnx d'un appel SSL ayant echoue (pour diagnostic).
 extern Result g_net_ssl_rc;
+extern const char *g_net_download_stage;
+extern char g_net_download_host[256];
 
 #endif // NEXTENDO_NET_H
