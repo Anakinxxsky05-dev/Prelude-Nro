@@ -130,6 +130,49 @@ static bool commitUpdate(void) {
     return true;
 }
 
+#ifdef PRELUDE_UPDATE_PROBE
+// Exercise the Switch filesystem transaction using two temporary copies of the
+// public download. The running probe and installed Prelude are never targets.
+static bool rehearseInstall(long expected) {
+    const char *target = "sdmc:/switch/.prelude-updater-rehearsal.nro";
+    const char *backup = "sdmc:/switch/.prelude-updater-rehearsal.backup";
+    const char *paths[] = {target, backup};
+    struct stat st;
+    for (unsigned i = 0; i < 2; ++i) {
+        if (stat(paths[i], &st) == 0 || errno != ENOENT) {
+            nextendo_trace("probe install: existing rehearsal file retained; refusing overwrite");
+            return false;
+        }
+    }
+    FILE *in = fopen(nroTmp(), "rb");
+    if (!in) return false;
+    FILE *out = fopen(target, "wb");
+    if (!out) { fclose(in); return false; }
+    unsigned char buffer[16384];
+    bool ok = true;
+    size_t n; long copied = 0;
+    while ((n = fread(buffer, 1, sizeof(buffer), in))) {
+        if (fwrite(buffer, 1, n, out) != n) { ok = false; break; }
+        copied += (long)n;
+    }
+    if (ferror(in) || copied != expected) ok = false;
+    if (fclose(in)) ok = false;
+    if (fclose(out)) ok = false;
+    if (!ok || !commitUpdate()) { remove(target); return false; }
+    PreludeInstallResult result = prelude_install_nro(nroTmp(), target, backup, commitUpdate);
+    if (result != PRELUDE_INSTALL_OK) {
+        nextendo_trace("probe install: rehearsal failed; temporary recovery files retained");
+        return false;
+    }
+    ok = prelude_validate_nro(target, expected) && prelude_validate_nro(backup, expected);
+    if (ok) {
+        remove(target); remove(backup); commitUpdate();
+        nextendo_trace("probe install: SD write, rename, commit and readback passed; installed Prelude unchanged");
+    }
+    return ok;
+}
+#endif
+
 static char g_download_url[512] = {0};
 static long g_download_size = 0;
 
@@ -249,6 +292,7 @@ nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progres
     }
 
 #ifdef PRELUDE_UPDATE_PROBE
+    if (!rehearseInstall(expected)) return NUP_WRITE_FAIL;
     nextendo_trace("download-only test passed: public NRO validated; installation unchanged");
     remove(nroTmp());
     g_restart_required = true;
