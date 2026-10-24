@@ -1236,9 +1236,6 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     char *restored = NULL; size_t restoredLength = 0;
     if (nextendo_backup_use_for_nintendo() && backupCandidateOk(backup) &&
         !prelude_read_config(backup,&restored,&restoredLength)) return false;
-    bool hostsWritten=writeTextFile(active,restored ? restored : "# Prelude Nintendo mode: use normal DNS with Atmosphere telemetry defaults.\n");
-    free(restored);
-    if (!hostsWritten) return false;
     // default.txt : on n'efface que S'IL EST DE NOUS. Un default.txt que l'utilisateur
     // ecrivait deja avant Prelude ne nous appartient pas, et le supprimer lui ferait perdre
     // ses entrees sans qu'il ait rien demande. La restauration juste en dessous remet la
@@ -1266,6 +1263,7 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // repose tout au retour en mode Nextendo.
     if (!removeTreeRomfs("romfs:/sd", "sdmc:")) {
         nextendo_trace("24b removeTreeRomfs a echoue");
+        free(restored);
         return false;
     }
     nextendo_trace("24 removeTreeRomfs ok");
@@ -1297,11 +1295,8 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // Garde-fou : si nos hosts resistent a l'effacement, garder le DNS-MITM actif redirigerait
     // en douce vers nos serveurs une console censee etre sur Nintendo. Dans ce cas seulement, on
     // retombe sur l'ancien comportement (dns_mitm=0), qui neutralise nos hosts a coup sur.
-    bool hostsGone = !fileHas(active,NEXTENDO_SERVER_IP_DEFAULT) && !fileHas(active,NEXTENDO_SERVER_IP_ALT) && !fileHas(active,NEXTENDO_HOSTS_HEADER_MARK);
-    if (!hostsGone) { nextendo_trace("mode: Nintendo hosts verification failed"); return false; }
-    bool i = hostsGone ? iniSetDnsMitm(true, true) : iniSetDnsMitm(false, false);
-    nextendo_trace(hostsGone ? "25 ini ok (hosts partis, dns_mitm garde actif)"
-                             : "25 ini ok (SECOURS : hosts resistants, dns_mitm coupe)");
+    bool i = iniSetDnsMitm(true, true);
+    nextendo_trace(i ? "25 Nintendo DNS settings prepared" : "25 Nintendo DNS settings failed");
 
     // emuMMC : PRODINFO blanchi -> anti-ban si online vrai Nintendo (sans effet sur une console
     // sysNAND-only : l'UI previent). Le joueur peut choisir de garder le VRAI PRODINFO pour jouer
@@ -1309,9 +1304,16 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     bool p = nextendo_detect_boot() != BOOT_EMUMMC || iniSetBlankProdinfoEmummc(blankProdinfo);
     nextendo_trace(blankProdinfo ? "26 blank_prodinfo_emummc=1"
                                  : "26 blank_prodinfo_emummc=0 (choix du joueur)");
+    // Do not enable official routing until shared resource cleanup/settings succeeded.
+    if (!i || !p) { free(restored); return false; }
+    bool hostsWritten=writeTextFile(active,restored ? restored : "# Prelude Nintendo mode: use normal DNS with Atmosphere telemetry defaults.\n");
+    free(restored);
+    if (!hostsWritten) return false;
+    bool hostsGone = !fileHas(active,NEXTENDO_SERVER_IP_DEFAULT) && !fileHas(active,NEXTENDO_SERVER_IP_ALT) && !fileHas(active,NEXTENDO_HOSTS_HEADER_MARK);
+    if (!hostsGone) { nextendo_trace("mode: Nintendo hosts verification failed"); return false; }
     bool durable = commitConfig();
-    nextendo_trace("27 apply_nintendo: TERMINE");
-    return i && p && durable;
+    nextendo_trace(durable ? "27 apply_nintendo: complete; reboot required" : "27 apply_nintendo: commit failed");
+    return durable;
 }
 
 // --- Mode CAPTURE (cache) : vrai Nintendo + patches disable_ca_verification du ssl ---
