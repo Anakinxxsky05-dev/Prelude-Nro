@@ -44,12 +44,14 @@ bool nextendo_apply_nextendo(void);
 // Mode NINTENDO : renomme les hosts Nextendo en .bak + enable_dns_mitm=0 -> tout redevient normal.
 bool nextendo_apply_nintendo(void);
 
-// Mode NINTENDO avec choix du PRODINFO en emuMMC : true = blanchi (defaut, anti-ban, pas
-// d'online Nintendo en emuMMC), false = PRODINFO reel (online Nintendo possible, risque de ban).
+// Nintendo mode: both PRODINFO choices keep Nintendo DNS blocked. The identity
+// setting takes effect only after reboot and never grants a ban-free guarantee.
 bool nextendo_apply_nintendo_ex(bool blankProdinfo);
 
 // exosphere.ini contient blank_prodinfo_emummc=1.
 bool nextendo_prodinfo_emummc_blanked(void);
+// Saved setting for the next boot: -1 unreadable/invalid, 0 disabled, 1 enabled.
+int nextendo_prodinfo_emummc_state(void);
 
 // Mode CAPTURE (cache) : mode NINTENDO + patches disable_ca_verification du ssl + PRODINFO reel
 // en emuMMC + marqueur. Pour capturer avec mitmproxy uniquement ; voir l'avertissement dans l'UI.

@@ -849,7 +849,7 @@ int main(int argc, char **argv) {
                 screen = SCREEN_PICKER;
             }
             if (screen == SCREEN_PRODINFO_ASK)
-                ui_draw_prodinfo_ask(nextendo_prodinfo_emummc_blanked());
+                ui_draw_prodinfo_ask(nextendo_prodinfo_emummc_state());
 
         } else if (screen == SCREEN_CAPTURE_ACTIVE) {
             // A / Y menent a la confirmation habituelle du mode choisi ; B ferme le rappel.

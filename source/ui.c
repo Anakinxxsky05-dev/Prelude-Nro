@@ -825,7 +825,7 @@ void ui_draw_capture_active(void) {
 
 // ------- Mode NINTENDO en emuMMC : blanchir le PRODINFO ou garder le reel -------
 // Trois issues (A / Y / B), d'ou un ecran a part plutot que la question OUI/NON.
-void ui_draw_prodinfo_ask(bool blankedNow) {
+void ui_draw_prodinfo_ask(int savedState) {
     u32 st;
     u32 *b = (u32 *)framebufferBegin(&s_fb, &st);
     int dw = 980, dh = 340, dx, dy;
@@ -839,7 +839,7 @@ void ui_draw_prodinfo_ask(bool blankedNow) {
     drawCF(b, st, s_semi, FB_W / 2, y, FS_CAP, packColor(theme_warn()), lang_str(STR_PRODINFO_NO));
     y += SP_MD + SP_XS;
     drawCF(b, st, s_reg, FB_W / 2, y, FS_CAP, packColor(theme_text2()),
-           lang_str(blankedNow ? STR_PRODINFO_NOW_ON : STR_PRODINFO_NOW_OFF));
+           lang_str(savedState < 0 ? STR_PRODINFO_UNKNOWN : savedState ? STR_PRODINFO_NOW_ON : STR_PRODINFO_NOW_OFF));
 
     int ay = dy + dh - 64;
     fillRect(b, st, dx, ay, dw, 2, packColor(theme_sep()));

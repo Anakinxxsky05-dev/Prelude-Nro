@@ -35,6 +35,7 @@
 #include "nextendo_apply.h"
 #include "prelude_io.h"
 #include "prelude_dns_block.h"
+#include "prelude_prodinfo.h"
 #include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
@@ -1215,8 +1216,20 @@ int nextendo_hosts_refresh(void) {
     return rewritten;
 }
 
+static int prodinfoFlag(const char *key) {
+    char *text = NULL; size_t length = 0;
+    if (!prelude_read_config(NEXTENDO_EXOSPHERE_INI, &text, &length)) return -1;
+    int state = prelude_prodinfo_flag(text, key);
+    free(text);
+    return state;
+}
+
+int nextendo_prodinfo_emummc_state(void) {
+    return prodinfoFlag("blank_prodinfo_emummc");
+}
+
 bool nextendo_prodinfo_emummc_blanked(void) {
-    return fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1");
+    return nextendo_prodinfo_emummc_state() == 1;
 }
 
 bool nextendo_apply_nintendo(void) {
@@ -1751,9 +1764,9 @@ bool nextendo_account_link_is_installed(void) {
 
 bool nextendo_account_link_is_recommended(void) {
     BootType boot = nextendo_detect_boot();
-    if (boot == BOOT_EMUMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1"))
+    if (boot == BOOT_EMUMMC && prodinfoFlag("blank_prodinfo_emummc") == 1)
         return true;
-    if (boot == BOOT_SYSMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_sysmmc=1"))
+    if (boot == BOOT_SYSMMC && prodinfoFlag("blank_prodinfo_sysmmc") == 1)
         return true;
     return false;
 }

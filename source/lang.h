@@ -291,6 +291,7 @@ typedef enum {
     STR_PRODINFO_NO,                  // ce que fait "Garder le reel"
     STR_PRODINFO_NOW_ON,              // etat actuel : blanchi
     STR_PRODINFO_NOW_OFF,             // etat actuel : reel
+    STR_PRODINFO_UNKNOWN,             // saved state unreadable or invalid
     STR_PRODINFO_HINTS,               // "A: Blank (recommended)   Y: Keep real   B: Cancel"
     STR_COUNT
 } StringID;

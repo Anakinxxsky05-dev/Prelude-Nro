@@ -47,7 +47,7 @@ void ui_draw_capture_warn(int holdPct);
 // Rappel affiche a chaque lancement tant que le mode CAPTURE est actif.
 void ui_draw_capture_active(void);
 // Mode NINTENDO en emuMMC : A = blanchir le PRODINFO, Y = garder le reel, B = annuler.
-void ui_draw_prodinfo_ask(bool blankedNow);
+void ui_draw_prodinfo_ask(int savedState);
 
 // Popup de CONFIRMATION avant d'appliquer + redemarrer (A = confirmer, B = annuler).
 // warnNoEmummc : console sans emuMMC (CFW sur la memoire interne). Le mode NINTENDO ne peut alors
