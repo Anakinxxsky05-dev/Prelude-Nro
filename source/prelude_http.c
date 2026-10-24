@@ -4,6 +4,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+int prelude_http_headers_feed(PreludeHttpHeaders *headers, const unsigned char *data,
+                              size_t size, size_t *consumed) {
+    *consumed = 0;
+    if (headers->complete) return 1;
+    while (*consumed < size) {
+        if (headers->length == PRELUDE_HTTP_HEADER_LIMIT) return -1;
+        if (headers->length == headers->capacity) {
+            size_t capacity = headers->capacity ? headers->capacity * 2 : 4096;
+            if (capacity > PRELUDE_HTTP_HEADER_LIMIT) capacity = PRELUDE_HTTP_HEADER_LIMIT;
+            unsigned char *grown = realloc(headers->data, capacity);
+            if (!grown) return -2;
+            headers->data = grown; headers->capacity = capacity;
+        }
+        headers->data[headers->length++] = data[(*consumed)++];
+        if (headers->length >= 4 && !memcmp(headers->data + headers->length - 4, "\r\n\r\n", 4)) {
+            headers->complete = true;
+            return 1;
+        }
+    }
+    return 0;
+}
 static const unsigned char *line_end(const unsigned char *p, const unsigned char *end) {
     for (; p < end && end - p >= 2; ++p) if (p[0] == '\r' && p[1] == '\n') return p;
     return NULL;

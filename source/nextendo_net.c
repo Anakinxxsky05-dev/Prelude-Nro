@@ -442,8 +442,8 @@ long net_https_get_to_file(const char *host, const char *path,
 
         // Streaming: lire via SSL, ecrire dans le fichier.
         unsigned char rbuf[32768];
-        unsigned char hdr[8192];
-        size_t hlen = 0;
+        PreludeHttpHeaders headers = {0};
+        int headerError = 0;
         int status = 0;
         int inBody = 0;
         long bodyBytes = 0;
@@ -461,6 +461,7 @@ long net_https_get_to_file(const char *host, const char *path,
                 // Redirect body is discarded (typically empty or small HTML)
                 if (!is_redirect) {
                     if (fwrite(rbuf, 1, read, out) != read) {
+                        free(headers.data);
                         sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
                         if (out_fd >= 0) close(out_fd);
                         *out_status = status; return -2;
@@ -472,15 +473,15 @@ long net_https_get_to_file(const char *host, const char *path,
                 continue;
             }
             size_t i = 0;
-            while (i < (size_t)read && hlen < sizeof(hdr)) {
-                hdr[hlen++] = rbuf[i++];
-                if (hlen >= 4 && hdr[hlen-4]=='\r' && hdr[hlen-3]=='\n' && hdr[hlen-2]=='\r' && hdr[hlen-1]=='\n')
-                    break;
-            }
-            if (hlen >= 4 && hdr[hlen-4]=='\r' && hdr[hlen-3]=='\n' && hdr[hlen-2]=='\r' && hdr[hlen-1]=='\n') {
+            int headerResult = prelude_http_headers_feed(&headers, rbuf, read, &i);
+            if (headerResult < 0) { headerError = headerResult; break; }
+            if (headerResult == 1) {
+                const unsigned char *hdr = headers.data;
+                size_t hlen = headers.length;
                 status = parse_status(hdr, hlen);
                 is_redirect = (status >= 300 && status < 400);
                 inBody = 1;
+                if (is_redirect) break;
                 if (!is_redirect) {
                     // Capture Content-Length si present (verif integrite en fin de stream).
                     for (size_t j = 0; j + 16 < hlen; j++) {
@@ -502,7 +503,8 @@ long net_https_get_to_file(const char *host, const char *path,
                     if ((size_t)read > i) {
                         size_t rem = (size_t)read - i;
                         if (fwrite(rbuf + i, 1, rem, out) != rem) {
-                            sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
+                            free(headers.data);
+                        sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
                             if (out_fd >= 0) close(out_fd);
                             *out_status = status; return -2;
                         }
@@ -518,7 +520,8 @@ long net_https_get_to_file(const char *host, const char *path,
 
         // Capture Location before closing the connection
         char location[2048] = {0};
-        if (is_redirect) extract_location(hdr, hlen, location, sizeof(location));
+        if (is_redirect) extract_location(headers.data, headers.length, location, sizeof(location));
+        free(headers.data);
 
         sslConnectionClose(&sslConn);
         sslContextClose(&sslCtx);
@@ -540,7 +543,12 @@ long net_https_get_to_file(const char *host, const char *path,
         }
 
         // Final integrity check
-        if (!inBody) return -1;
+        if (!inBody) {
+            *out_status = headerError == -2 ? NET_ERR_OOM : NET_ERR_PROTO;
+            g_net_download_stage = headerError == -1 ? "HTTP_header_limit" :
+                                   headerError == -2 ? "HTTP_header_memory" : "HTTP_header_incomplete";
+            return -1;
+        }
         // Integrite : Content-Length est l'autorite (le serveur ferme apres le body, un
         // erreur SSL au EOF est alors normal). Sans CL, un erreur SSL a mi-corps = tronque.
         if (contentLen >= 0) {
