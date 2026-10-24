@@ -1753,7 +1753,7 @@ bool nextendo_account_link_is_recommended(void) {
     BootType boot = nextendo_detect_boot();
     if (boot == BOOT_EMUMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1"))
         return true;
-    if (fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_sysmmc=1"))
+    if (boot == BOOT_SYSMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_sysmmc=1"))
         return true;
     return false;
 }

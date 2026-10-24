@@ -27,6 +27,7 @@ prefix=r'''
 #define NEXTENDO_SERVER_IP_ALT "3.135.232.168"
 #define NEXTENDO_CAPTURE_FLAG "capture"
 #define NEXTENDO_SETTINGS_INI "settings.ini"
+#define NEXTENDO_EXOSPHERE_INI "sdmc:/exosphere.ini"
 #define SETTINGS_DIR "."
 #define ACCOUNT_LINK_DIR "account-link"
 #define ACCOUNT_LINK_FLAGS "account-link/flags"
@@ -72,7 +73,7 @@ static bool captureFlagPresent(void){return false;}
 static bool capturePatchesPresent(void){return false;}
 static char*nextendo_hosts_build(const char*ip){char text[256];snprintf(text,sizeof(text),"%s\n%s accounts.nintendo.com\n",NEXTENDO_HOSTS_HEADER_MARK,ip);return strdup(text);}
 '''
-names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('iniSetNetworkMitm','static bool '),('nextendo_account_link_remove','bool '),('nextendo_apply_nextendo_ip','bool '),('applyNintendoPolicy','static bool '),('nextendo_apply_nintendo_ex','bool ')]
+names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('iniSetNetworkMitm','static bool '),('nextendo_account_link_remove','bool '),('nextendo_account_link_is_recommended','bool '),('nextendo_apply_nextendo_ip','bool '),('applyNintendoPolicy','static bool '),('nextendo_apply_nintendo_ex','bool ')]
 # Skip forward declarations and locate the body definition, not the prototype.
 def definition(name,decl):
  global source
@@ -87,6 +88,14 @@ def definition(name,decl):
  return source[start:p]
 main=r'''
 int main(void){
+ put(NEXTENDO_EXOSPHERE_INI,"[exosphere]\nblank_prodinfo_sysmmc=1\nblank_prodinfo_emummc=0\n");
+ boot=BOOT_EMUMMC;assert(!nextendo_account_link_is_recommended());
+ boot=BOOT_SYSMMC;assert(nextendo_account_link_is_recommended());
+ put(NEXTENDO_EXOSPHERE_INI,"[exosphere]\nblank_prodinfo_sysmmc=0\nblank_prodinfo_emummc=1\n");
+ boot=BOOT_EMUMMC;assert(nextendo_account_link_is_recommended());
+ boot=BOOT_SYSMMC;assert(!nextendo_account_link_is_recommended());
+ boot=BOOT_UNKNOWN;assert(!nextendo_account_link_is_recommended());
+ boot=BOOT_EMUMMC;
  const char *emu=NEXTENDO_HOSTS_EMUMMC,*sys=NEXTENDO_HOSTS_SYSMMC,*def=NEXTENDO_HOSTS_DEFAULT;
  put(sys,"# Nintendo sysMMC user file\n");put(def,"# shared user defaults\n");
  put("sdmc:/emuMMC/emummc.ini","[emummc]\nenabled=1\nid=0x0001\n");
