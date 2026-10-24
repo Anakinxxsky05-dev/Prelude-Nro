@@ -157,8 +157,14 @@ NextendoUpdate nextendo_update_check(void) {
 
     PreludeRelease release;
     if (body && status == 200 && prelude_parse_release((const char *)body, len, &release)) {
-        if (semver_cmp(release.major, release.minor, release.patch,
-                       NEXTENDO_VERSION_MAJOR, NEXTENDO_VERSION_MINOR, NEXTENDO_VERSION_PATCH) > 0) {
+        bool newer = semver_cmp(release.major, release.minor, release.patch,
+                               NEXTENDO_VERSION_MAJOR, NEXTENDO_VERSION_MINOR, NEXTENDO_VERSION_PATCH) > 0;
+#ifdef PRELUDE_UPDATE_PROBE
+        // Diagnostic artifact only: exercise the real public download even when
+        // the installed public version is current. Installation is disabled below.
+        newer = true;
+#endif
+        if (newer) {
             u.available = true;
             u.maj = release.major; u.min = release.minor; u.patch = release.patch;
             u.size = g_download_size = release.size;
@@ -241,6 +247,13 @@ nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progres
         remove(nroTmp());
         return NUP_SIZE_FAIL;
     }
+
+#ifdef PRELUDE_UPDATE_PROBE
+    nextendo_trace("download-only test passed: public NRO validated; installation unchanged");
+    remove(nroTmp());
+    g_restart_required = true;
+    return NUP_OK;
+#endif
 
     char backup[sizeof(g_self_tmp) + 24];
     snprintf(backup, sizeof(backup), "%s.prelude-backup", nroPath());

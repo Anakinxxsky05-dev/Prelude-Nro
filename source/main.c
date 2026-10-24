@@ -1021,6 +1021,10 @@ int main(int argc, char **argv) {
                     strncpy(updFmt, lang_str(STR_STATUS_UPDATE_OK_DESC), sizeof(updFmt) - 1);
                     updFmt[sizeof(updFmt) - 1] = '\0';
                     snprintf(rMsg, sizeof(rMsg), updFmt, upd.maj, upd.min, upd.patch);
+#ifdef PRELUDE_UPDATE_PROBE
+                    snprintf(rTitle, sizeof(rTitle), "Download test passed");
+                    snprintf(rMsg, sizeof(rMsg), "Public NRO downloaded and validated. Installed Prelude was not changed.");
+#endif
                     break;
                 }
                 case NUP_SIZE_FAIL:
