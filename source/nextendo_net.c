@@ -30,6 +30,7 @@
 #include <stdio.h>
 
 #include "nextendo_net.h"
+#include "prelude_http.h"
 
 Result g_net_ssl_rc = 0;
 
@@ -157,16 +158,14 @@ unsigned char *net_http_get(const char *ip, int port, const char *path, size_t *
     *out_status = status;
 
     bool found = false;
-    size_t bodyOff = find_body(buf, len, &found);
+    (void)find_body(buf, len, &found);
     if (!found) { free(buf); return NULL; }
 
-    size_t blen = len - bodyOff;
-    unsigned char *body = (unsigned char *)malloc(blen ? blen : 1);
-    if (!body) { free(buf); return NULL; }
-    memcpy(body, buf + bodyOff, blen);
+    unsigned char *body = NULL;
+    if (!prelude_http_payload(buf, len, &body, out_len)) {
+        free(buf); *out_status = NET_ERR_PROTO; return NULL;
+    }
     free(buf);
-
-    *out_len = blen;
     return body;
 }
 
@@ -329,16 +328,14 @@ unsigned char *net_https_get(const char *host, const char *path,
     *out_status = status;
 
     bool found = false;
-    size_t bodyOff = find_body(buf, len, &found);
+    (void)find_body(buf, len, &found);
     if (!found) { free(buf); *out_status = NET_ERR_PROTO; return NULL; }
 
-    size_t blen = len - bodyOff;
-    unsigned char *body = (unsigned char *)malloc(blen ? blen : 1);
-    if (!body) { free(buf); return NULL; }
-    memcpy(body, buf + bodyOff, blen);
+    unsigned char *body = NULL;
+    if (!prelude_http_payload(buf, len, &body, out_len)) {
+        free(buf); *out_status = NET_ERR_PROTO; return NULL;
+    }
     free(buf);
-
-    *out_len = blen;
     return body;
 }
 

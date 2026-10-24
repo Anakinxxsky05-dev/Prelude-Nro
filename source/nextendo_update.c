@@ -53,18 +53,8 @@ static char g_self_nro[512] = {0};
 static char g_self_tmp[520] = {0};
 
 void nextendo_update_set_self_path(const char *argv0) {
-    // Sans argv exploitable on garde le chemin historique : mieux vaut l'ancien
-    // comportement qu'une ecriture a un endroit invente.
-    if (!argv0 || !*argv0) return;
-    size_t n = strlen(argv0);
-    if (n < 5 || n >= sizeof(g_self_nro)) return;
-    if (strcasecmp(argv0 + n - 4, ".nro") != 0) return;
-    if (strncmp(argv0, "sdmc:/", 6) == 0)
-        snprintf(g_self_nro, sizeof(g_self_nro), "%s", argv0);
-    else if (argv0[0] == '/')
-        snprintf(g_self_nro, sizeof(g_self_nro), "sdmc:%s", argv0);
-    else
-        return;
+    g_self_tmp[0] = 0;
+    if (!prelude_nro_path(argv0, g_self_nro, sizeof(g_self_nro))) return;
     // Le fichier temporaire va A COTE de la cible : rename() ne traverse alors aucune
     // frontiere et le .new ne traine pas dans un dossier qui n'est pas le sien.
     snprintf(g_self_tmp, sizeof(g_self_tmp), "%s.new", g_self_nro);
@@ -187,6 +177,10 @@ NextendoUpdate nextendo_update_check(void) {
 
 // Download and apply the update. Owns socket/SSL initialization and cleanup.
 nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progress_fn onProgress) {
+    if (!g_self_nro[0]) {
+        nextendo_trace("update: actual NRO path unavailable or too long; refusing guessed destination");
+        return NUP_WRITE_FAIL;
+    }
     if (g_download_url[0] == '\0') return NUP_NET_FAIL;
     long expected = expectedSize > 0 ? expectedSize : g_download_size;
 
