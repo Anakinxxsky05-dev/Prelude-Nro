@@ -26,6 +26,11 @@ prefix=r'''
 #define NEXTENDO_SERVER_IP_DEFAULT "51.178.29.194"
 #define NEXTENDO_SERVER_IP_ALT "3.135.232.168"
 #define NEXTENDO_CAPTURE_FLAG "capture"
+#define NEXTENDO_SETTINGS_INI "settings.ini"
+#define SETTINGS_DIR "."
+#define ACCOUNT_LINK_DIR "account-link"
+#define ACCOUNT_LINK_FLAGS "account-link/flags"
+#define ACCOUNT_LINK_BOOTFLAG "account-link/flags/boot2.flag"
 #define R_FAILED(x) ((x)!=0)
 typedef enum {BOOT_UNKNOWN=-1,BOOT_SYSMMC,BOOT_EMUMMC} BootType;
 static BootType boot=BOOT_EMUMMC;
@@ -50,7 +55,15 @@ static int nextendo_purge_stale(void){return 0;}
 static bool cleanupFails;
 static const char *const NEXTENDO_STALE_FILES[]={"old-cert-resource"};
 static bool removeTreeRomfs(const char*a,const char*b){(void)a;(void)b;return !cleanupFails;}
-static bool nextendo_account_link_remove(void){return !cleanupFails;}
+static int fakeRemove(const char *path){
+ if(cleanupFails && strstr(path,ACCOUNT_LINK_DIR)){errno=EIO;return -1;}
+ for(int i=0;i<count;i++)if(!strcmp(files[i].path,path)){files[i]=files[--count];return 0;}
+ errno=ENOENT;return -1;
+}
+static int fakeRmdir(const char *path){(void)path;return 0;}
+#define remove fakeRemove
+#define rmdir fakeRmdir
+bool nextendo_account_link_remove(void);
 static int prodinfoWrites;
 static bool iniSetBlankProdinfoEmummc(bool b){(void)b;prodinfoWrites++;return true;}
 static bool iniSetDnsMitm(bool a,bool b){(void)a;(void)b;return true;}
@@ -59,7 +72,7 @@ static bool captureFlagPresent(void){return false;}
 static bool capturePatchesPresent(void){return false;}
 static char*nextendo_hosts_build(const char*ip){char text[256];snprintf(text,sizeof(text),"%s\n%s accounts.nintendo.com\n",NEXTENDO_HOSTS_HEADER_MARK,ip);return strdup(text);}
 '''
-names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('nextendo_apply_nextendo_ip','bool '),('applyNintendoPolicy','static bool '),('nextendo_apply_nintendo_ex','bool ')]
+names=[('activeHostsPath','static bool '),('activeHostsBackupPath','static const char *'),('copyFileRaw','static bool '),('backupCandidateOk','static bool '),('nextendo_current_mode','int '),('iniSetNetworkMitm','static bool '),('nextendo_account_link_remove','bool '),('nextendo_apply_nextendo_ip','bool '),('applyNintendoPolicy','static bool '),('nextendo_apply_nintendo_ex','bool ')]
 # Skip forward declarations and locate the body definition, not the prototype.
 def definition(name,decl):
  global source
@@ -85,6 +98,15 @@ int main(void){
   assert(strstr(get(emu),"127.0.0.1 nintendo.*"));
   assert(nextendo_apply_nintendo_ex(false));assert(strstr(get(emu),"127.0.0.1 nintendo.*"));
  }
+ // Removing account linking must preserve both identity configuration values.
+ const char *identity="[exosphere]\nblank_prodinfo_sysmmc=1\nblank_prodinfo_emummc=1\n";
+ put("sdmc:/exosphere.ini",identity);
+ put(ACCOUNT_LINK_BOOTFLAG,"flag");put(ACCOUNT_LINK_DIR "/mitm.lst","ssl");put(ACCOUNT_LINK_DIR "/exefs.nsp","synthetic");
+ assert(nextendo_account_link_remove());assert(!fileExists(ACCOUNT_LINK_BOOTFLAG));
+ assert(!strcmp(get("sdmc:/exosphere.ini"),identity));
+ put(ACCOUNT_LINK_BOOTFLAG,"flag");cleanupFails=true;
+ assert(!nextendo_account_link_remove());assert(!strcmp(get("sdmc:/exosphere.ini"),identity));
+ cleanupFails=false;assert(nextendo_account_link_remove());
  // The other NAND's Nextendo mode must not change this NAND's indicator.
  put(sys,NEXTENDO_SERVER_IP_DEFAULT);assert(nextendo_current_mode()==1);
  // A legacy Nextendo default cannot take over Nintendo after a switch.
