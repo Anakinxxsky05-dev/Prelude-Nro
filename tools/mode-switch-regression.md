@@ -22,6 +22,10 @@ does not edit the emuMMC PRODINFO setting. Firmware resources and Atmosphere's
 system settings remain shared on the SD; this change does not create per-NAND
 copies of system modules or promise any protection from Nintendo account bans.
 
+Nintendo routing is enabled only after resource removal succeeds. Account-link
+removal now checks its files, settings and commit; failures propagate to the UI.
+Legacy resource removal is also verified instead of silently ignoring errors.
+
 `test_mode_isolation.py` compiles the actual production functions with an in-memory
 SD and stubs for firmware resources. It covers repeated switching, both NANDs,
 shared fallback, emuMMC-ID precedence, restoring a custom per-ID backup, unknown

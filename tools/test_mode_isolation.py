@@ -47,6 +47,7 @@ static int nextendo_news_purge(const char*p){(void)p;return 0;}
 static void nextendo_purge_leaks(void){}
 static int nextendo_purge_stale(void){return 0;}
 static bool cleanupFails;
+static const char *const NEXTENDO_STALE_FILES[]={"old-cert-resource"};
 static bool removeTreeRomfs(const char*a,const char*b){(void)a;(void)b;return !cleanupFails;}
 static bool nextendo_account_link_remove(void){return !cleanupFails;}
 static int prodinfoWrites;

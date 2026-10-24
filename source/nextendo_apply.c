@@ -1228,23 +1228,12 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     if (!activeHostsPath(active,sizeof(active)) || !activeHostsBackupPath(active,backup,sizeof(backup))) return false;
     nextendo_trace("20 apply_nintendo: entree");
     remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE ; apply_capture le repose apres
-    // Nos hosts sont SUPPRIMES, pas renommes : le retour en mode Nextendo les reecrit depuis
-    // NEXTENDO_HOSTS et n'a jamais relu le .bak, qui ne servait donc qu'a garder l'IP du VPS
-    // lisible sur la carte.
     // Keep an explicit Nintendo file, even when empty, so a legacy Nextendo
     // default.txt cannot become the active file after this switch.
     char *restored = NULL; size_t restoredLength = 0;
     if (nextendo_backup_use_for_nintendo() && backupCandidateOk(backup) &&
         !prelude_read_config(backup,&restored,&restoredLength)) return false;
-    // default.txt : on n'efface que S'IL EST DE NOUS. Un default.txt que l'utilisateur
-    // ecrivait deja avant Prelude ne nous appartient pas, et le supprimer lui ferait perdre
-    // ses entrees sans qu'il ait rien demande. La restauration juste en dessous remet la
-    // version sauvegardee quand il y en a une.
-    // Shared default and the other NAND's hosts are deliberately untouched.
-    nextendo_trace("21 hosts supprimes");
-    // L'utilisateur a demande a retrouver SES redirections d'origine : on les remet
-    // APRES la suppression. La sauvegarde a ete refusee a la creation si elle contenait
-    // une de nos IP, donc rien de Nextendo ne peut revenir par ce chemin.
+    // Shared default and the other NAND's hosts remain unchanged.
     nextendo_purge_leaks();
     nextendo_trace("22 purge_leaks ok");
 
@@ -1254,6 +1243,11 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // blanchi par-dessus. C'est precisement ce qu'il ne faut pas, et ca donne 2137-7403.
     nextendo_purge_stale();
     nextendo_trace("23 purge_stale ok");
+    for (unsigned n=0; n<sizeof(NEXTENDO_STALE_FILES)/sizeof(NEXTENDO_STALE_FILES[0]); ++n) {
+        if (fileExists(NEXTENDO_STALE_FILES[n])) {
+            free(restored); nextendo_trace("mode: legacy resource cleanup failed; routing unchanged"); return false;
+        }
+    }
 
     // Retirer AUSSI le stack cert-trust courant (patches disable_ca_verification, CA Nextendo
     // injectee dans le navigateur, rootCA.pem). Mesure sur une console de test : il survivait a
