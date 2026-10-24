@@ -53,18 +53,8 @@ static char g_self_nro[512] = {0};
 static char g_self_tmp[520] = {0};
 
 void nextendo_update_set_self_path(const char *argv0) {
-    // Sans argv exploitable on garde le chemin historique : mieux vaut l'ancien
-    // comportement qu'une ecriture a un endroit invente.
-    if (!argv0 || !*argv0) return;
-    size_t n = strlen(argv0);
-    if (n < 5 || n >= sizeof(g_self_nro)) return;
-    if (strcasecmp(argv0 + n - 4, ".nro") != 0) return;
-    if (strncmp(argv0, "sdmc:/", 6) == 0)
-        snprintf(g_self_nro, sizeof(g_self_nro), "%s", argv0);
-    else if (argv0[0] == '/')
-        snprintf(g_self_nro, sizeof(g_self_nro), "sdmc:%s", argv0);
-    else
-        return;
+    g_self_tmp[0] = 0;
+    if (!prelude_nro_path(argv0, g_self_nro, sizeof(g_self_nro))) return;
     // Le fichier temporaire va A COTE de la cible : rename() ne traverse alors aucune
     // frontiere et le .new ne traine pas dans un dossier qui n'est pas le sien.
     snprintf(g_self_tmp, sizeof(g_self_tmp), "%s.new", g_self_nro);
@@ -140,6 +130,49 @@ static bool commitUpdate(void) {
     return true;
 }
 
+#ifdef PRELUDE_UPDATE_PROBE
+// Exercise the Switch filesystem transaction using two temporary copies of the
+// public download. The running probe and installed Prelude are never targets.
+static bool rehearseInstall(long expected) {
+    const char *target = "sdmc:/switch/.prelude-updater-rehearsal.nro";
+    const char *backup = "sdmc:/switch/.prelude-updater-rehearsal.backup";
+    const char *paths[] = {target, backup};
+    struct stat st;
+    for (unsigned i = 0; i < 2; ++i) {
+        if (stat(paths[i], &st) == 0 || errno != ENOENT) {
+            nextendo_trace("probe install: existing rehearsal file retained; refusing overwrite");
+            return false;
+        }
+    }
+    FILE *in = fopen(nroTmp(), "rb");
+    if (!in) return false;
+    FILE *out = fopen(target, "wb");
+    if (!out) { fclose(in); return false; }
+    unsigned char buffer[16384];
+    bool ok = true;
+    size_t n; long copied = 0;
+    while ((n = fread(buffer, 1, sizeof(buffer), in))) {
+        if (fwrite(buffer, 1, n, out) != n) { ok = false; break; }
+        copied += (long)n;
+    }
+    if (ferror(in) || copied != expected) ok = false;
+    if (fclose(in)) ok = false;
+    if (fclose(out)) ok = false;
+    if (!ok || !commitUpdate()) { remove(target); return false; }
+    PreludeInstallResult result = prelude_install_nro(nroTmp(), target, backup, commitUpdate);
+    if (result != PRELUDE_INSTALL_OK) {
+        nextendo_trace("probe install: rehearsal failed; temporary recovery files retained");
+        return false;
+    }
+    ok = prelude_validate_nro(target, expected) && prelude_validate_nro(backup, expected);
+    if (ok) {
+        remove(target); remove(backup); commitUpdate();
+        nextendo_trace("probe install: SD write, rename, commit and readback passed; installed Prelude unchanged");
+    }
+    return ok;
+}
+#endif
+
 static char g_download_url[512] = {0};
 static long g_download_size = 0;
 
@@ -167,8 +200,14 @@ NextendoUpdate nextendo_update_check(void) {
 
     PreludeRelease release;
     if (body && status == 200 && prelude_parse_release((const char *)body, len, &release)) {
-        if (semver_cmp(release.major, release.minor, release.patch,
-                       NEXTENDO_VERSION_MAJOR, NEXTENDO_VERSION_MINOR, NEXTENDO_VERSION_PATCH) > 0) {
+        bool newer = semver_cmp(release.major, release.minor, release.patch,
+                               NEXTENDO_VERSION_MAJOR, NEXTENDO_VERSION_MINOR, NEXTENDO_VERSION_PATCH) > 0;
+#ifdef PRELUDE_UPDATE_PROBE
+        // Diagnostic artifact only: exercise the real public download even when
+        // the installed public version is current. Installation is disabled below.
+        newer = true;
+#endif
+        if (newer) {
             u.available = true;
             u.maj = release.major; u.min = release.minor; u.patch = release.patch;
             u.size = g_download_size = release.size;
@@ -187,6 +226,10 @@ NextendoUpdate nextendo_update_check(void) {
 
 // Download and apply the update. Owns socket/SSL initialization and cleanup.
 nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progress_fn onProgress) {
+    if (!g_self_nro[0]) {
+        nextendo_trace("update: actual NRO path unavailable or too long; refusing guessed destination");
+        return NUP_WRITE_FAIL;
+    }
     if (g_download_url[0] == '\0') return NUP_NET_FAIL;
     long expected = expectedSize > 0 ? expectedSize : g_download_size;
 
@@ -217,9 +260,9 @@ nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progres
         g_net_ssl_rc = 0;
         len = net_https_get_to_file(host, path, f, &status,
                                    onProgress ? progressRelay : NULL);
-        char message[128];
-        snprintf(message, sizeof(message), "update download: attempt=%d HTTP=%d SSL=%08lx bytes=%ld",
-                 attempt + 1, status, (unsigned long)g_net_ssl_rc, len);
+        char message[384];
+        snprintf(message, sizeof(message), "update download: attempt=%d host=%s stage=%s HTTP=%d SSL=%08lx bytes=%ld",
+                 attempt + 1, g_net_download_host, g_net_download_stage, status, (unsigned long)g_net_ssl_rc, len);
         nextendo_trace(message);
         if (len == -2 || (len >= 0 && status == 200)) break;
         if (attempt == 1 || (status >= 400 && status < 500)) break;
@@ -247,6 +290,14 @@ nextendo_update_result nextendo_update_apply(long expectedSize, nextendo_progres
         remove(nroTmp());
         return NUP_SIZE_FAIL;
     }
+
+#ifdef PRELUDE_UPDATE_PROBE
+    if (!rehearseInstall(expected)) return NUP_WRITE_FAIL;
+    nextendo_trace("download-only test passed: public NRO validated; installation unchanged");
+    remove(nroTmp());
+    g_restart_required = true;
+    return NUP_OK;
+#endif
 
     char backup[sizeof(g_self_tmp) + 24];
     snprintf(backup, sizeof(backup), "%s.prelude-backup", nroPath());

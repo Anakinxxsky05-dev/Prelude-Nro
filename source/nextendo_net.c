@@ -30,8 +30,11 @@
 #include <stdio.h>
 
 #include "nextendo_net.h"
+#include "prelude_http.h"
 
 Result g_net_ssl_rc = 0;
+const char *g_net_download_stage = "not_started";
+char g_net_download_host[256];
 
 // Taille maximale d'une reponse HTTP en memoire (4 MiB).
 // Au-dela, on considere que le serveur envoie trop de donnees (DoS ou erreur).
@@ -157,16 +160,14 @@ unsigned char *net_http_get(const char *ip, int port, const char *path, size_t *
     *out_status = status;
 
     bool found = false;
-    size_t bodyOff = find_body(buf, len, &found);
+    (void)find_body(buf, len, &found);
     if (!found) { free(buf); return NULL; }
 
-    size_t blen = len - bodyOff;
-    unsigned char *body = (unsigned char *)malloc(blen ? blen : 1);
-    if (!body) { free(buf); return NULL; }
-    memcpy(body, buf + bodyOff, blen);
+    unsigned char *body = NULL;
+    if (!prelude_http_payload(buf, len, &body, out_len)) {
+        free(buf); *out_status = NET_ERR_PROTO; return NULL;
+    }
     free(buf);
-
-    *out_len = blen;
     return body;
 }
 
@@ -329,16 +330,14 @@ unsigned char *net_https_get(const char *host, const char *path,
     *out_status = status;
 
     bool found = false;
-    size_t bodyOff = find_body(buf, len, &found);
+    (void)find_body(buf, len, &found);
     if (!found) { free(buf); *out_status = NET_ERR_PROTO; return NULL; }
 
-    size_t blen = len - bodyOff;
-    unsigned char *body = (unsigned char *)malloc(blen ? blen : 1);
-    if (!body) { free(buf); return NULL; }
-    memcpy(body, buf + bodyOff, blen);
+    unsigned char *body = NULL;
+    if (!prelude_http_payload(buf, len, &body, out_len)) {
+        free(buf); *out_status = NET_ERR_PROTO; return NULL;
+    }
     free(buf);
-
-    *out_len = blen;
     return body;
 }
 
@@ -379,9 +378,12 @@ long net_https_get_to_file(const char *host, const char *path,
     strncpy(cur_path, path,  sizeof(cur_path) - 1); cur_path[sizeof(cur_path)-1] = '\0';
 
     for (int attempt = 0; attempt < 3; attempt++) {
+        snprintf(g_net_download_host, sizeof(g_net_download_host), "%s", cur_host);
+        g_net_download_stage = "DNS";
         const char *ip = resolve_host(cur_host);
         if (!ip) { *out_status = NET_ERR_CONNECT; return -1; }
 
+        g_net_download_stage = "TCP";
         int fd = tcp_connect(ip, 443);
         if (fd < 0) { *out_status = NET_ERR_CONNECT; return -1; }
 
@@ -393,11 +395,14 @@ long net_https_get_to_file(const char *host, const char *path,
 
         SslContext sslCtx;
         SslConnection sslConn;
+        g_net_download_stage = "SSL_context";
         Result rc = sslCreateContext(&sslCtx, SslVersion_Auto);
         if (R_FAILED(rc)) { g_net_ssl_rc = rc; close(fd); *out_status = NET_ERR_OOM; return -1; }
+        g_net_download_stage = "SSL_connection";
         rc = sslContextCreateConnection(&sslCtx, &sslConn);
         if (R_FAILED(rc)) { g_net_ssl_rc = rc; sslContextClose(&sslCtx); close(fd); *out_status = NET_ERR_UNKNOWN; return -1; }
 
+        g_net_download_stage = "SSL_socket";
         int out_fd = socketSslConnectionSetSocketDescriptor(&sslConn, fd);
         if (out_fd < 0) { g_net_ssl_rc = 0xe87b; sslConnectionClose(&sslConn); sslContextClose(&sslCtx); close(fd); *out_status = NET_ERR_SOCKET; return -1; }
 
@@ -409,6 +414,7 @@ long net_https_get_to_file(const char *host, const char *path,
         { static const u8 alpn[] = { 8, 'h','t','t','p','/','1','.','1' };
           sslConnectionSetNextAlpnProto(&sslConn, alpn, sizeof(alpn)); }
 
+        g_net_download_stage = "SSL_handshake";
         rc = sslConnectionDoHandshake(&sslConn, NULL, NULL, NULL, 0);
         if (R_FAILED(rc)) { g_net_ssl_rc = rc; sslConnectionClose(&sslConn); sslContextClose(&sslCtx); if (out_fd >= 0) close(out_fd); *out_status = NET_ERR_PROTO; return -1; }
 
@@ -425,6 +431,7 @@ long net_https_get_to_file(const char *host, const char *path,
             if (out_fd >= 0) close(out_fd);
             *out_status = NET_ERR_PROTO; return -1;
         }
+        g_net_download_stage = "HTTP_request";
         rc = sslConnectionWrite(&sslConn, req, rl, &written);
         if (R_FAILED(rc) || written != (u32)rl) {
             g_net_ssl_rc = rc;
@@ -435,8 +442,8 @@ long net_https_get_to_file(const char *host, const char *path,
 
         // Streaming: lire via SSL, ecrire dans le fichier.
         unsigned char rbuf[32768];
-        unsigned char hdr[8192];
-        size_t hlen = 0;
+        PreludeHttpHeaders headers = {0};
+        int headerError = 0;
         int status = 0;
         int inBody = 0;
         long bodyBytes = 0;
@@ -445,6 +452,7 @@ long net_https_get_to_file(const char *host, const char *path,
         bool is_redirect = false;
 
         for (;;) {
+            g_net_download_stage = inBody ? "HTTP_body" : "HTTP_headers";
             u32 read = 0;
             rc = sslConnectionRead(&sslConn, rbuf, sizeof(rbuf), &read);
             if (R_FAILED(rc)) { g_net_ssl_rc = rc; sslError = true; break; }
@@ -453,6 +461,7 @@ long net_https_get_to_file(const char *host, const char *path,
                 // Redirect body is discarded (typically empty or small HTML)
                 if (!is_redirect) {
                     if (fwrite(rbuf, 1, read, out) != read) {
+                        free(headers.data);
                         sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
                         if (out_fd >= 0) close(out_fd);
                         *out_status = status; return -2;
@@ -464,15 +473,15 @@ long net_https_get_to_file(const char *host, const char *path,
                 continue;
             }
             size_t i = 0;
-            while (i < (size_t)read && hlen < sizeof(hdr)) {
-                hdr[hlen++] = rbuf[i++];
-                if (hlen >= 4 && hdr[hlen-4]=='\r' && hdr[hlen-3]=='\n' && hdr[hlen-2]=='\r' && hdr[hlen-1]=='\n')
-                    break;
-            }
-            if (hlen >= 4 && hdr[hlen-4]=='\r' && hdr[hlen-3]=='\n' && hdr[hlen-2]=='\r' && hdr[hlen-1]=='\n') {
+            int headerResult = prelude_http_headers_feed(&headers, rbuf, read, &i);
+            if (headerResult < 0) { headerError = headerResult; break; }
+            if (headerResult == 1) {
+                const unsigned char *hdr = headers.data;
+                size_t hlen = headers.length;
                 status = parse_status(hdr, hlen);
                 is_redirect = (status >= 300 && status < 400);
                 inBody = 1;
+                if (is_redirect) break;
                 if (!is_redirect) {
                     // Capture Content-Length si present (verif integrite en fin de stream).
                     for (size_t j = 0; j + 16 < hlen; j++) {
@@ -494,7 +503,8 @@ long net_https_get_to_file(const char *host, const char *path,
                     if ((size_t)read > i) {
                         size_t rem = (size_t)read - i;
                         if (fwrite(rbuf + i, 1, rem, out) != rem) {
-                            sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
+                            free(headers.data);
+                        sslConnectionClose(&sslConn); sslContextClose(&sslCtx);
                             if (out_fd >= 0) close(out_fd);
                             *out_status = status; return -2;
                         }
@@ -510,7 +520,8 @@ long net_https_get_to_file(const char *host, const char *path,
 
         // Capture Location before closing the connection
         char location[2048] = {0};
-        if (is_redirect) extract_location(hdr, hlen, location, sizeof(location));
+        if (is_redirect) extract_location(headers.data, headers.length, location, sizeof(location));
+        free(headers.data);
 
         sslConnectionClose(&sslConn);
         sslContextClose(&sslCtx);
@@ -519,6 +530,7 @@ long net_https_get_to_file(const char *host, const char *path,
 
         // Bound redirect chains; never silently accept a truncated Location.
         if (is_redirect && attempt < 2 && location[0]) {
+            g_net_download_stage = "HTTP_redirect";
             char new_host[256] = {0};
             char new_path[2048] = {0};
             if (sscanf(location, "https://%255[^/]%2047s", new_host, new_path) < 2)
@@ -531,7 +543,12 @@ long net_https_get_to_file(const char *host, const char *path,
         }
 
         // Final integrity check
-        if (!inBody) return -1;
+        if (!inBody) {
+            *out_status = headerError == -2 ? NET_ERR_OOM : NET_ERR_PROTO;
+            g_net_download_stage = headerError == -1 ? "HTTP_header_limit" :
+                                   headerError == -2 ? "HTTP_header_memory" : "HTTP_header_incomplete";
+            return -1;
+        }
         // Integrite : Content-Length est l'autorite (le serveur ferme apres le body, un
         // erreur SSL au EOF est alors normal). Sans CL, un erreur SSL a mi-corps = tronque.
         if (contentLen >= 0) {

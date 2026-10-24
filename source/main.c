@@ -20,6 +20,7 @@
 // ============================================================
 #include <stdio.h>
 #include <string.h>
+#include <stdatomic.h>
 #include <switch.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -159,7 +160,7 @@ static struct {
     // il lit quelques megaoctets sur la SD et n'a rien a faire dans la boucle d'affichage.
     bool            modsOld;      // le mod SSBU installe differe de celui embarque
     char            flagOld[3];   // pays dont le drapeau n'a pas le patch des deux versions
-    volatile bool   done;
+    atomic_bool     done;
 } s_boot;
 
 static Thread s_bootThread;
@@ -302,8 +303,7 @@ static void bootWorker(void *arg) {
     flag_needs_update(s_boot.flagOld);
 
     s_boot.upd  = u;
-    __asm__ __volatile__("dmb ish" ::: "memory");  // upd visible AVANT done
-    s_boot.done = true;
+    atomic_store_explicit(&s_boot.done, true, memory_order_release);
 }
 
 int main(int argc, char **argv) {
@@ -312,7 +312,9 @@ int main(int argc, char **argv) {
     // cote, et l'utilisateur relancait indefiniment l'ancienne version.
     nextendo_update_set_self_path((argc > 0 && argv) ? argv[0] : NULL);
 
-    remove(NEXTENDO_TRACE_PATH);
+    // Retain the preceding attempt when users reopen Prelude after an error.
+    remove("sdmc:/prelude_trace.previous.txt");
+    rename(NEXTENDO_TRACE_PATH, "sdmc:/prelude_trace.previous.txt");
     nextendo_trace("01 main: starting Prelude");
     Result romfsResult = romfsInit();
     if (R_FAILED(romfsResult)) {
@@ -335,7 +337,6 @@ int main(int argc, char **argv) {
         return 1;
     }
     nextendo_trace("02 startup: romfs mounted");
-    audio_init();
     lang_init();
 
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
@@ -363,6 +364,7 @@ int main(int argc, char **argv) {
     // l'utilisateur nous parle) et ne grossit pas indefiniment. Conservee en release : le gel du
     // build 10 n'a jamais ete explique, donc si un joueur le revit, ce fichier est notre seul temoin.
     nextendo_trace("10 main: ui_init ok");
+    audio_init();
 
     // Une console sans emuMMC fait tourner le CFW sur la memoire interne, donc avec son vrai
     // identifiant : blank_prodinfo_emummc, la protection posee par le mode NINTENDO, n'a alors
@@ -396,20 +398,20 @@ int main(int argc, char **argv) {
     struct stat stNews;
     bool newsPatchAvant = current == CHOICE_NEXTENDO &&
         stat("sdmc:/atmosphere/exefs_patches/nextendo_bcat_signature", &stNews) == 0;
-    if (current == CHOICE_NEXTENDO) nextendo_provision_all_public();
+    bool provisionOk = current != CHOICE_NEXTENDO || nextendo_provision_all_public();
     // Les hosts, eux, n'etaient ecrits qu'a l'application du mode : un Prelude mis a jour gardait ceux de la
     // version precedente, sans les lignes des jeux ajoutes depuis (UCH, UNO...). Un joueur "a jour" ne pouvait
     // pas jouer et il fallait lui envoyer le fichier. On les remet donc au contenu de cette version, s'ils sont
     // a nous et different ; ils ne sont lus qu'au demarrage de la console, d'ou le redemarrage.
-    int hostsRafraichis = (current == CHOICE_NEXTENDO) ? nextendo_hosts_refresh() : 0;
+    int hostsRafraichis = (current == CHOICE_NEXTENDO && provisionOk) ? nextendo_hosts_refresh() : 0;
     if (current == CHOICE_NEXTENDO)
         nextendo_trace(newsPatchAvant ? "news: patch deja sur la carte, rien a purger"
                                       : "news: patch absent avant ce lancement");
-    bool newsRedemarrer = current == CHOICE_NEXTENDO && !newsPatchAvant &&
+    bool newsRedemarrer = current == CHOICE_NEXTENDO && provisionOk && !newsPatchAvant &&
         nextendo_news_patch_for_console() && nextendo_news_purge("mise a jour");
     // Patch deja charge au demarrage : on redemande les abonnements d'office a chaque lancement
     // (sans effet s'ils existent deja, indispensable s'ils ont ete perdus).
-    if (current == CHOICE_NEXTENDO && newsPatchAvant && nextendo_news_patch_for_console())
+    if (current == CHOICE_NEXTENDO && provisionOk && newsPatchAvant && nextendo_news_patch_for_console())
         nextendo_news_resubscribe();
 
     static NextendoS3Status s3;
@@ -437,6 +439,7 @@ int main(int argc, char **argv) {
     int  captureHold  = 0;   // frames de X maintenu sur l'avertissement
     int  state  = 0;
     char status[160] = {0};
+    if (!provisionOk) snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_SD_ERROR));
     char rTitle[64] = {0}, rMsg[192] = {0};
     bool rOk = false;
 
@@ -466,13 +469,14 @@ int main(int argc, char **argv) {
     s_boot.mode = current;
     nextendo_trace("13 demarrage du thread reseau (picker deja affiche)");
     bool bootThreadOn = false;
-    if (R_SUCCEEDED(threadCreate(&s_bootThread, bootWorker, &s_bootThread, NULL, 0x20000, 0x2C, -2))
-        && R_SUCCEEDED(threadStart(&s_bootThread))) {
+    Result bootCreate = threadCreate(&s_bootThread, bootWorker, &s_bootThread, NULL, 0x20000, 0x2C, -2);
+    if (R_SUCCEEDED(bootCreate) && R_SUCCEEDED(threadStart(&s_bootThread))) {
         bootThreadOn = true;
     } else {
         // Pas de thread : on retombe sur l'ancien comportement synchrone plutot que
         // de laisser upd non renseigne — le verrou de MAJ obligatoire en depend.
-        nextendo_trace("13b threadCreate KO -> repli synchrone");
+        if (R_SUCCEEDED(bootCreate)) threadClose(&s_bootThread);
+        nextendo_trace("13b network thread unavailable -> synchronous fallback");
         bootWorker(NULL);
     }
     NextendoUpdate upd = (NextendoUpdate){0};
@@ -610,9 +614,9 @@ int main(int argc, char **argv) {
                             // d'erreur. Interdit en mode Nintendo, qui retire la pile de
                             // certificats expres — la reposer ici serait une faille.
                             if (current == CHOICE_NEXTENDO) {
-                                nextendo_provision_all_public();
+                                bool provisioned = nextendo_provision_all_public();
                                 nextendo_s3_status(&s3);   // relire : le panneau doit refleter la carte
-                                snprintf(status, sizeof(status), "%s", lang_str(STR_S3_DONE));
+                                snprintf(status, sizeof(status), "%s", lang_str(provisioned ? STR_S3_DONE : STR_STATUS_SD_ERROR));
                             }
                             break;
                         case RAIL_S2:
@@ -1017,6 +1021,10 @@ int main(int argc, char **argv) {
                     strncpy(updFmt, lang_str(STR_STATUS_UPDATE_OK_DESC), sizeof(updFmt) - 1);
                     updFmt[sizeof(updFmt) - 1] = '\0';
                     snprintf(rMsg, sizeof(rMsg), updFmt, upd.maj, upd.min, upd.patch);
+#ifdef PRELUDE_UPDATE_PROBE
+                    snprintf(rTitle, sizeof(rTitle), "Download test passed");
+                    snprintf(rMsg, sizeof(rMsg), "Public NRO downloaded and validated. Installed Prelude was not changed.");
+#endif
                     break;
                 }
                 case NUP_SIZE_FAIL:

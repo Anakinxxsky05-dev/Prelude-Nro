@@ -35,6 +35,12 @@ jobs:
           /tmp/test-safe-update
           cc -std=gnu11 -Wall -Wextra -Werror -I source tools/test_hosts_refresh.c -o /tmp/test-hosts-refresh
           /tmp/test-hosts-refresh
+          cc -std=c11 -Wall -Wextra -Werror tools/test_config_io.c -o /tmp/test-config-io
+          /tmp/test-config-io
+          cc -std=c11 -Wall -Wextra -Werror tools/test_http.c source/prelude_http.c -o /tmp/test-http
+          /tmp/test-http
+          python3 tools/test_config_editors.py
+          python3 tools/test_download_stream.py
 
   build:
     needs: updater-tests
@@ -146,3 +152,20 @@ jobs:
         with:
           files: nextendo.nro
           generate_release_notes: true
+
+      - name: Build download-only diagnostic
+        if: github.event_name == 'pull_request'
+        run: |
+          cp nextendo.nro /tmp/nextendo-production.nro
+          make clean
+          make -j"$(nproc)" DEFINES=-DPRELUDE_UPDATE_PROBE APP_TITLE="Prelude Updater Test"
+          mv nextendo.nro nextendo-updater-test.nro
+          cp /tmp/nextendo-production.nro nextendo.nro
+
+      - name: Upload download-only diagnostic
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prelude-updater-test
+          path: nextendo-updater-test.nro
+          if-no-files-found: error

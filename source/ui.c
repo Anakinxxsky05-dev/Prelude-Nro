@@ -294,14 +294,18 @@ static int chromeSection(u32 *b, u32 st, int x, int y, const char *text) {
 static bool loadFace(const char *path, FT_Face *face, u8 **buf) {
     FILE *f = fopen(path, "rb");
     if (!f) return false;
-    fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    if (sz < 0) { fclose(f); return false; }
+    if (fseek(f, 0, SEEK_END)) { fclose(f); return false; }
+    long sz = ftell(f);
+    if (sz <= 0 || sz > 32 * 1024 * 1024 || fseek(f, 0, SEEK_SET)) { fclose(f); return false; }
     *buf = (u8 *)malloc(sz);
     if (!*buf) { fclose(f); return false; }
-    bool ok = (fread(*buf, 1, sz, f) == (size_t)sz);
-    fclose(f);
-    if (!ok) return false;
-    return FT_New_Memory_Face(s_ft, *buf, sz, 0, face) == 0;
+    bool ok = fread(*buf, 1, sz, f) == (size_t)sz && !ferror(f);
+    if (fclose(f)) ok = false;
+    if (!ok || FT_New_Memory_Face(s_ft, *buf, sz, 0, face)) {
+        free(*buf); *buf = NULL; *face = NULL;
+        return false;
+    }
+    return true;
 }
 static u8 *loadImg(const char *path) {
     FILE *f = fopen(path, "rb");

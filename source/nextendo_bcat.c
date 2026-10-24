@@ -204,8 +204,10 @@ static int downloadZip(const char *titleIdLower) {
 
     int status = 0;
     long len = net_https_get_to_file(BCAT_HOST, apiPath, f, &status, NULL);
-    fclose(f);
-    fsdevCommitDevice("sdmc");  // rend le zip visible/immediat pour miniz (sinon lecture tronquee)
+    bool stored = !ferror(f);
+    if (fclose(f)) stored = false;
+    if (R_FAILED(fsdevCommitDevice("sdmc"))) stored = false;
+    if (!stored) { remove(ZIP_TMP); return BCAT_ERR_WRITE; }
 
     if (status == 204) { remove(ZIP_TMP); return 204; }
     if (status != 200) { remove(ZIP_TMP); return status ? status : NET_ERR_TIMEOUT; }  // status=0 = sin respuesta HTTP (fallo pre-read)

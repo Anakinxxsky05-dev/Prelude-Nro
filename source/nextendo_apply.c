@@ -33,6 +33,7 @@
 #include <switch.h>
 
 #include "nextendo_apply.h"
+#include "prelude_io.h"
 #include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
@@ -301,12 +302,24 @@ char *nextendo_hosts_build(const char *ip) {
     return buf;
 }
 
+static bool commitConfig(void) {
+    bool ok = R_SUCCEEDED(fsdevCommitDevice("sdmc"));
+    if (!ok) nextendo_trace("config: SD commit failed");
+    return ok;
+}
+static bool modeConfigReadable(void) {
+    const char *paths[] = {NEXTENDO_SETTINGS_INI, NEXTENDO_EXOSPHERE_INI};
+    for (unsigned i = 0; i < 2; ++i) {
+        char *text = NULL; size_t length = 0;
+        bool ok = prelude_read_config(paths[i], &text, &length);
+        free(text);
+        if (!ok) { nextendo_trace("mode: unreadable configuration; operation cancelled before changing hosts"); return false; }
+    }
+    return true;
+}
 static bool writeTextFile(const char *path, const char *contents) {
-    FILE *f = fopen(path, "w");
-    if (!f) return false;
-    size_t n = strlen(contents);
-    bool ok = (fwrite(contents, 1, n, f) == n);
-    fclose(f);
+    bool ok = prelude_write_config(path, contents, commitConfig);
+    if (!ok) nextendo_trace("config: write failed; previous configuration retained for recovery");
     return ok;
 }
 
@@ -322,22 +335,13 @@ static bool iniSetDnsMitm(bool enable, bool addDefaults) {
 
     ensureDir(SETTINGS_DIR);
 
-    char *buf = NULL; long sz = 0;
-    FILE *f = fopen(NEXTENDO_SETTINGS_INI, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
-        buf = (char *)malloc(sz + 1);
-        if (!buf) { fclose(f); return false; }
-        if (sz > 0) {
-            size_t nr = fread(buf, 1, sz, f);
-            if (nr != (size_t)sz) {
-                // Lecture partielle -> fichier corrompu, on le traite comme inexistant.
-                free(buf); buf = NULL; sz = 0;
-            }
-        }
-        if (buf) buf[sz] = '\0';
-        fclose(f);
+    char *buf = NULL;
+    size_t textSize = 0;
+    if (!prelude_read_config(NEXTENDO_SETTINGS_INI, &buf, &textSize)) {
+        nextendo_trace("config: read failed; existing settings left unchanged");
+        return false;
     }
+    long sz = (long)textSize;
 
     size_t cap = (size_t)sz + 256;
     char *out = (char *)malloc(cap);
@@ -389,10 +393,8 @@ static bool iniSetDnsMitm(bool enable, bool addDefaults) {
     }
     free(buf);
 
-    f = fopen(NEXTENDO_SETTINGS_INI, "wb");
-    if (!f) { free(out); return false; }
-    bool ok = (fwrite(out, 1, olen, f) == olen);
-    fclose(f);
+    out[olen] = '\0';
+    bool ok = writeTextFile(NEXTENDO_SETTINGS_INI, out);
     free(out);
     #undef EMIT
     return ok;
@@ -409,22 +411,13 @@ static bool iniSetBlankProdinfoEmummc(bool blank) {
     static const char *K = "blank_prodinfo_emummc";
     const char *V = blank ? "blank_prodinfo_emummc=1\n" : "blank_prodinfo_emummc=0\n";
 
-    char *buf = NULL; long sz = 0;
-    FILE *f = fopen(NEXTENDO_EXOSPHERE_INI, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
-        buf = (char *)malloc(sz + 1);
-        if (!buf) { fclose(f); return false; }
-        if (sz > 0) {
-            size_t nr = fread(buf, 1, sz, f);
-            if (nr != (size_t)sz) {
-                // Lecture partielle -> fichier corrompu, on le traite comme inexistant.
-                free(buf); buf = NULL; sz = 0;
-            }
-        }
-        if (buf) buf[sz] = '\0';
-        fclose(f);
+    char *buf = NULL;
+    size_t textSize = 0;
+    if (!prelude_read_config(NEXTENDO_EXOSPHERE_INI, &buf, &textSize)) {
+        nextendo_trace("config: read failed; existing settings left unchanged");
+        return false;
     }
+    long sz = (long)textSize;
 
     size_t cap = (size_t)sz + 128;
     char *out = (char *)malloc(cap);
@@ -468,10 +461,8 @@ static bool iniSetBlankProdinfoEmummc(bool blank) {
     }
     free(buf);
 
-    f = fopen(NEXTENDO_EXOSPHERE_INI, "wb");
-    if (!f) { free(out); return false; }
-    bool ok = (fwrite(out, 1, olen, f) == olen);
-    fclose(f);
+    out[olen] = '\0';
+    bool ok = writeTextFile(NEXTENDO_EXOSPHERE_INI, out);
     free(out);
     #undef EMITX
     return ok;
@@ -594,6 +585,7 @@ static bool copyTreeRomfs(const char *srcDir, const char *dstDir) {
 static bool removeTreeRomfs(const char *srcDir, const char *dstDir) {
     DIR *d = opendir(srcDir);
     if (!d) return false;
+    bool ok = true;
     struct dirent *e;
     while ((e = readdir(d)) != NULL) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
@@ -602,14 +594,14 @@ static bool removeTreeRomfs(const char *srcDir, const char *dstDir) {
         snprintf(dp, sizeof(dp), "%s/%s", dstDir, e->d_name);
         struct stat st;
         if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode)) {
-            removeTreeRomfs(sp, dp);
+            if (!removeTreeRomfs(sp, dp)) ok = false;
             rmdir(dp);                  // vide seulement -> sinon conserve
         } else {
-            remove(dp);
+            if (remove(dp) != 0 && errno != ENOENT) ok = false;
         }
     }
     closedir(d);
-    return true;
+    return ok;
 }
 
 // --- Retire les traces qui laissent l'IP du VPS lisible sur la carte SD.
@@ -710,7 +702,7 @@ static bool nextendo_provision_all(void) {
         return false;
     }
     nextendo_trace("provision: SD resources complete");
-    return true;
+    return commitConfig();
 }
 
 // ============================================================================
@@ -1053,6 +1045,7 @@ void nextendo_s3_status(NextendoS3Status *out) {
 }
 
 bool nextendo_apply_nextendo_ip(const char *ip) {
+    if (!modeConfigReadable()) return false;
     remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE par ce chemin aussi
     if (R_FAILED(ensureDir(NEXTENDO_HOSTS_DIR))) return false;
     if (!nextendo_provision_all()) {
@@ -1099,8 +1092,8 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
     bool p = iniSetBlankProdinfoEmummc(false);
     if (!p) nextendo_trace("29 WARN: iniSetBlankProdinfoEmummc(false) a echoue -> risque 2123-0011");
     nextendo_purge_leaks();
-    fsdevCommitDevice("sdmc");
-    return a && b && d && i && p;
+    bool durable = commitConfig();
+    return a && b && d && i && p && durable;
 }
 
 bool nextendo_apply_nextendo(void) {
@@ -1166,6 +1159,7 @@ bool nextendo_apply_nintendo(void) {
 }
 
 bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
+    if (!modeConfigReadable()) return false;
     nextendo_trace("20 apply_nintendo: entree");
     remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE ; apply_capture le repose apres
     // Nos hosts sont SUPPRIMES, pas renommes : le retour en mode Nextendo les reecrit depuis
@@ -1247,12 +1241,12 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // emuMMC : PRODINFO blanchi -> anti-ban si online vrai Nintendo (sans effet sur une console
     // sysNAND-only : l'UI previent). Le joueur peut choisir de garder le VRAI PRODINFO pour jouer
     // en ligne chez Nintendo depuis l'emuMMC : c'est son choix, l'ecran dit le risque.
-    iniSetBlankProdinfoEmummc(blankProdinfo);
+    bool p = iniSetBlankProdinfoEmummc(blankProdinfo);
     nextendo_trace(blankProdinfo ? "26 blank_prodinfo_emummc=1"
                                  : "26 blank_prodinfo_emummc=0 (choix du joueur)");
-    fsdevCommitDevice("sdmc");
+    bool durable = commitConfig();
     nextendo_trace("27 apply_nintendo: TERMINE");
-    return i;
+    return i && p && durable;
 }
 
 // --- Mode CAPTURE (cache) : vrai Nintendo + patches disable_ca_verification du ssl ---
@@ -1628,18 +1622,13 @@ static bool iniSetNetworkMitm(bool enable) {
 
     ensureDir(SETTINGS_DIR);
 
-    char *buf = NULL; long sz = 0;
-    FILE *f = fopen(NEXTENDO_SETTINGS_INI, "rb");
-    if (f) {
-        fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
-        buf = (char *)malloc(sz + 1);
-        if (buf && sz > 0) {
-            size_t nr = fread(buf, 1, sz, f);
-            if (nr != (size_t)sz) { free(buf); buf = NULL; sz = 0; }
-        }
-        if (buf) buf[sz] = '\0';
-        fclose(f);
+    char *buf = NULL;
+    size_t textSize = 0;
+    if (!prelude_read_config(NEXTENDO_SETTINGS_INI, &buf, &textSize)) {
+        nextendo_trace("config: read failed; existing settings left unchanged");
+        return false;
     }
+    long sz = (long)textSize;
     if (!buf) {
         return writeTextFile(NEXTENDO_SETTINGS_INI, enable ? cfgEnabled : cfgDisabled);
     }
@@ -1692,10 +1681,8 @@ static bool iniSetNetworkMitm(bool enable) {
     }
 
     free(buf);
-    f = fopen(NEXTENDO_SETTINGS_INI, "wb");
-    if (!f) { free(out); return false; }
-    bool ok = (fwrite(out, 1, olen, f) == olen);
-    fclose(f);
+    out[olen] = '\0';
+    bool ok = writeTextFile(NEXTENDO_SETTINGS_INI, out);
     free(out);
     #undef EMIT_INI
     return ok;
@@ -1759,14 +1746,20 @@ bool nextendo_account_link_install(void) {
         nextendo_trace("24g account_link REFUSE : HOS >= 23.0.0 (issue #42)");
         return false;
     }
-    ensureDir(ACCOUNT_LINK_FLAGS);
-    bool ok = copyTreeRomfs(ACCOUNT_LINK_ROMFS, "sdmc:");
+    if (R_FAILED(ensureDir(ACCOUNT_LINK_FLAGS)) || !modeConfigReadable() ||
+        !copyTreeRomfs(ACCOUNT_LINK_ROMFS, "sdmc:") || !iniSetNetworkMitm(true)) {
+        remove(ACCOUNT_LINK_BOOTFLAG);
+        commitConfig();
+        nextendo_trace("account link: installation failed; boot flag disabled");
+        return false;
+    }
     FILE *bf = fopen(ACCOUNT_LINK_BOOTFLAG, "wb");
-    if (bf) fclose(bf);
-    iniSetNetworkMitm(true);
-    fsdevCommitDevice("sdmc");
+    bool ok = bf != NULL;
+    if (bf && fclose(bf)) ok = false;
+    if (!commitConfig()) ok = false;
+    if (!ok) { remove(ACCOUNT_LINK_BOOTFLAG); commitConfig(); return false; }
     nextendo_trace("24f account_link pose");
-    return ok || fileExists(ACCOUNT_LINK_BOOTFLAG);
+    return true;
 }
 
 void nextendo_account_link_remove(void) {

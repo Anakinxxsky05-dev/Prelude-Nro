@@ -13,6 +13,7 @@ typedef struct {
 
 bool prelude_parse_release(const char *json, size_t length, PreludeRelease *release);
 bool prelude_validate_nro(const char *path, long expected_size);
+bool prelude_nro_path(const char *input, char *output, size_t capacity);
 typedef bool (*PreludeCommit)(void);
 // All three paths must be siblings. Never copies over or deletes the installed NRO.
 // A failed rollback retains the backup and staged download for manual recovery.

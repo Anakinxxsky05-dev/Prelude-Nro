@@ -11,6 +11,23 @@
 #include <sys/stat.h>
 
 typedef struct { const char *begin, *end; } Json;
+bool prelude_nro_path(const char *input, char *output, size_t capacity) {
+    if (!capacity) return false;
+    output[0] = 0;
+    if (!input) return false;
+    size_t n = strlen(input);
+    if (n < 5 || input[n-4] != '.' || tolower((unsigned char)input[n-3]) != 'n' ||
+        tolower((unsigned char)input[n-2]) != 'r' || tolower((unsigned char)input[n-1]) != 'o') return false;
+    size_t prefix = 0;
+    if (strncmp(input, "sdmc:/", 6)) {
+        if (*input != '/') return false;
+        prefix = 5;
+    }
+    if (n >= capacity || prefix >= capacity - n) return false;
+    if (prefix) memcpy(output, "sdmc:", prefix);
+    memcpy(output + prefix, input, n + 1);
+    return true;
+}
 static const char *space(const char *p, const char *end) {
     while (p < end && (*p == ' ' || *p == '\r' || *p == '\n' || *p == '\t')) ++p;
     return p;

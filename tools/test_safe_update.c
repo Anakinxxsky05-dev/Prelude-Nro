@@ -83,6 +83,13 @@ static void storage_tests(void) {
     remove(target); remove(staged); remove(backup);
 }
 static void parser_tests(void) {
+    char path[32];
+    assert(prelude_nro_path("/switch/test.nro", path, sizeof(path)));
+    assert(!strcmp(path, "sdmc:/switch/test.nro"));
+    assert(prelude_nro_path("sdmc:/custom name.NRO", path, sizeof(path)));
+    assert(!prelude_nro_path("relative.nro", path, sizeof(path)) && !path[0]);
+    assert(!prelude_nro_path(NULL, path, sizeof(path)) && !path[0]);
+    assert(!prelude_nro_path("/switch/abcdefghijklmnopqrstuv.nro", path, sizeof(path)) && !path[0]);
     const char *good = "{\"body\":\"\\\"name\\\":\\\"other\\\"\",\"tag_name\":\"v4.0.10\",\"assets\":["
         "{\"name\":\"sources.zip\",\"size\":999999,\"browser_download_url\":\"https://example.com/file\"},"
         "{\"size\" : 25055144,\"name\":\"nextendo.nro\",\"browser_download_url\":"
