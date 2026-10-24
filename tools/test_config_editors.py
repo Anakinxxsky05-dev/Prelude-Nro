@@ -22,6 +22,7 @@ prefix = r'''
 #include <stdlib.h>
 #include <string.h>
 #include "prelude_io.h"
+#include "prelude_prodinfo.h"
 #define NEXTENDO_SETTINGS_INI "settings.ini"
 #define NEXTENDO_EXOSPHERE_INI "exosphere.ini"
 #define SETTINGS_DIR "."
@@ -49,6 +50,17 @@ int main(void) {
     assert(prelude_read_config(NEXTENDO_EXOSPHERE_INI,&text,&size));
     assert(strstr(text,"blank_prodinfo_sysmmc=0"));assert(strstr(text,"user_setting=retained"));
     assert(strstr(text,"blank_prodinfo_emummc=1"));free(text);
+    for (int i=0;i<4;++i) {
+        bool blank=(i%2)==0;
+        assert(iniSetBlankProdinfoEmummc(blank));
+        assert(prelude_read_config(NEXTENDO_EXOSPHERE_INI,&text,&size));
+        assert(prelude_prodinfo_flag(text,"blank_prodinfo_emummc")== (blank?1:0));
+        assert(prelude_prodinfo_flag(text,"blank_prodinfo_sysmmc")==0);
+        free(text);
+        assert(iniSetNetworkMitm(true));assert(iniSetNetworkMitm(false));
+        assert(prelude_read_config(NEXTENDO_EXOSPHERE_INI,&text,&size));
+        assert(prelude_prodinfo_flag(text,"blank_prodinfo_emummc")== (blank?1:0));free(text);
+    }
     puts("PASS: actual mode/account-link INI editors preserve comments, other sections and sysMMC settings");
     return 0;
 }
