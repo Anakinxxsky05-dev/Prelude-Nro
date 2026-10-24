@@ -556,7 +556,9 @@ static bool copyFile(const char *src, const char *dst) {
     size_t n; bool ok = true;
     while ((n = fread(cbuf, 1, sizeof(cbuf), in)) > 0)
         if (fwrite(cbuf, 1, n, out) != n) { ok = false; break; }
-    fclose(in); fclose(out);
+    if (ferror(in)) ok = false;
+    if (fclose(in) != 0) ok = false;
+    if (fclose(out) != 0) ok = false;
     return ok;
 }
 
@@ -565,6 +567,7 @@ static bool copyFile(const char *src, const char *dst) {
 static bool copyTreeRomfs(const char *srcDir, const char *dstDir) {
     DIR *d = opendir(srcDir);
     if (!d) return false;
+    bool ok = true;
     struct dirent *e;
     while ((e = readdir(d)) != NULL) {
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
@@ -573,14 +576,13 @@ static bool copyTreeRomfs(const char *srcDir, const char *dstDir) {
         snprintf(dp, sizeof(dp), "%s/%s", dstDir, e->d_name);
         struct stat st;
         if (stat(sp, &st) == 0 && S_ISDIR(st.st_mode)) {
-            if (R_FAILED(ensureDir(dp))) return false;
-            if (!copyTreeRomfs(sp, dp)) return false;
+            if (R_FAILED(ensureDir(dp)) || !copyTreeRomfs(sp, dp)) { ok = false; break; }
         } else {
-            if (!copyFile(sp, dp)) return false;
+            if (!copyFile(sp, dp)) { ok = false; break; }
         }
     }
     closedir(d);
-    return true;
+    return ok;
 }
 
 // --- Miroir exact de copyTreeRomfs : parcourt l'arbre romfs et retire de la SD les chemins
@@ -701,8 +703,13 @@ static int nextendo_purge_stale(void) {
 }
 
 static bool nextendo_provision_all(void) {
+    nextendo_trace("provision: begin SD resources");
     nextendo_purge_stale();
-    if (!copyTreeRomfs("romfs:/sd", "sdmc:")) return false;
+    if (!copyTreeRomfs("romfs:/sd", "sdmc:")) {
+        nextendo_trace("provision: failed reading RomFS or writing SD resources");
+        return false;
+    }
+    nextendo_trace("provision: SD resources complete");
     return true;
 }
 

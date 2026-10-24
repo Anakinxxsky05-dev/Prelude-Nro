@@ -312,7 +312,29 @@ int main(int argc, char **argv) {
     // cote, et l'utilisateur relancait indefiniment l'ancienne version.
     nextendo_update_set_self_path((argc > 0 && argv) ? argv[0] : NULL);
 
-    romfsInit();
+    remove(NEXTENDO_TRACE_PATH);
+    nextendo_trace("01 main: starting Prelude");
+    Result romfsResult = romfsInit();
+    if (R_FAILED(romfsResult)) {
+        char message[96];
+        snprintf(message, sizeof(message), "02 startup: romfsInit failed (%08lx)", (unsigned long)romfsResult);
+        nextendo_trace(message);
+        consoleInit(NULL);
+        printf("Prelude: cannot read its embedded resources (%08lx).\n"
+               "Replace the NRO at its real location and relaunch it.\n"
+               "Diagnostic: sd:/prelude_trace.txt\nPress + to exit.\n", (unsigned long)romfsResult);
+        PadState errorPad;
+        padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+        padInitializeDefault(&errorPad);
+        while (appletMainLoop()) {
+            padUpdate(&errorPad);
+            if (padGetButtonsDown(&errorPad) & HidNpadButton_Plus) break;
+            consoleUpdate(NULL);
+        }
+        consoleExit(NULL);
+        return 1;
+    }
+    nextendo_trace("02 startup: romfs mounted");
     audio_init();
     lang_init();
 
@@ -321,7 +343,18 @@ int main(int argc, char **argv) {
     padInitializeDefault(&pad);
 
     if (!ui_init()) {
+        nextendo_trace("03 startup: UI initialization failed");
         audio_exit();
+        ui_exit();
+        consoleInit(NULL);
+        printf("Prelude: interface initialization failed.\n"
+               "Diagnostic: sd:/prelude_trace.txt\nPress + to exit.\n");
+        while (appletMainLoop()) {
+            padUpdate(&pad);
+            if (padGetButtonsDown(&pad) & HidNpadButton_Plus) break;
+            consoleUpdate(NULL);
+        }
+        consoleExit(NULL);
         romfsExit();
         return 1;
     }
@@ -329,7 +362,6 @@ int main(int argc, char **argv) {
     // La trace repart de zero a chaque lancement : elle documente LA session courante (celle dont
     // l'utilisateur nous parle) et ne grossit pas indefiniment. Conservee en release : le gel du
     // build 10 n'a jamais ete explique, donc si un joueur le revit, ce fichier est notre seul temoin.
-    remove(NEXTENDO_TRACE_PATH);
     nextendo_trace("10 main: ui_init ok");
 
     // Une console sans emuMMC fait tourner le CFW sur la memoire interne, donc avec son vrai
@@ -1056,9 +1088,11 @@ int main(int argc, char **argv) {
             screen = SCREEN_FLAG_RESULT;
 
         } else { // SCREEN_S2_RESULT / SCREEN_UPD_RESULT / SCREEN_FLAG_RESULT / SCREEN_SSBU_RESULT (fallback)
-            if (k & (HidNpadButton_A | HidNpadButton_B | HidNpadButton_Plus))
+            if (k & (HidNpadButton_A | HidNpadButton_B | HidNpadButton_Plus)) {
+                if (screen == SCREEN_UPD_RESULT && nextendo_update_requires_restart()) break;
                 screen = (screen == SCREEN_FLAG_RESULT) ? SCREEN_FLAG_MENU
                                                         : SCREEN_PICKER;
+            }
             ui_draw_result(rTitle, rMsg, rOk);
         }
     }
