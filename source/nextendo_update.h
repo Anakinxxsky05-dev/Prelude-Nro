@@ -674,7 +674,8 @@
 // Keep shared default hosts unchanged and report concrete SD failure paths.
 // build 98: v4.0.13. Nintendo mode explicitly blocks official Nintendo DNS;
 // PRODINFO choice does not disable the block. Nextendo mode restores redirects.
-#define NEXTENDO_BUILD 98
+// build 99: v4.0.14. World War Z hosts (wwz*.wwzapi.com, rlx*.hydrapi.net).
+#define NEXTENDO_BUILD 99
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -690,7 +691,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 13
+#define NEXTENDO_VERSION_PATCH 14
 #endif
 
 typedef struct {

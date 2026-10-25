@@ -278,6 +278,13 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s phonescoring.jd.ubisoft.com\n", ip);   EMIT_H(line);
     snprintf(line, sizeof(line), "%s v2.phonescoring.jd.ubisoft.com\n", ip); EMIT_H(line);
 
+    EMIT_H("\n# --- World War Z (Saber Hydra API + RedLynx dispatcher) ---\n");
+    snprintf(line, sizeof(line), "%s wwz.wwzapi.com\n", ip);                    EMIT_H(line);
+    snprintf(line, sizeof(line), "%s wwz-production.wwzapi.com\n", ip);         EMIT_H(line);
+    snprintf(line, sizeof(line), "%s wwzprod.wwzapi.com\n", ip);                EMIT_H(line);
+    snprintf(line, sizeof(line), "%s rlx.hydrapi.net\n", ip);                   EMIT_H(line);
+    snprintf(line, sizeof(line), "%s rlxp1a1l.hydrapi.net\n", ip);              EMIT_H(line);
+
     EMIT_H("\n# --- 2) NAT-check #2 : IP differente de nncs1 (sinon MK8 test-103) ---\n");
     snprintf(line, sizeof(line), "%s  nncs2-*.n.n.srv.nintendo.net\n", nncs2_ip); EMIT_H(line);
 
