@@ -262,13 +262,20 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s nswitch.f13.illfonic.com\n", ip);          EMIT_H(line);
 
     EMIT_H("\n# --- Among Us (login Epic Online Services, compte Innersloth, matchmakers regionaux) ---\n");
-    // api.epicgames.dev sert aussi d'autres jeux Epic : le service de comptes Nextendo ne traite
-    // que Among Us et retransmet le reste, tel quel, au vrai Epic.
+    // api.epicgames.dev is shared with other Epic games. The Nextendo account service
+    // handles supported Nextendo titles and forwards other requests to Epic.
     snprintf(line, sizeof(line), "%s api.epicgames.dev\n", ip);                 EMIT_H(line);
     snprintf(line, sizeof(line), "%s backend.innersloth.com\n", ip);            EMIT_H(line);
     snprintf(line, sizeof(line), "%s matchmaker.among.us\n", ip);               EMIT_H(line);
     snprintf(line, sizeof(line), "%s matchmaker-eu.among.us\n", ip);            EMIT_H(line);
     snprintf(line, sizeof(line), "%s matchmaker-as.among.us\n", ip);            EMIT_H(line);
+
+    EMIT_H("\n# --- Guilty Gear -Strive- (Arc System Works API + matchmaking) ---\n");
+    // EOS sign-in uses the shared api.epicgames.dev entry above. Atmosphere hosts
+    // apply globally in Nextendo mode; keep the game API/match servers exact.
+    snprintf(line, sizeof(line), "%s switch-ggst-game.guiltygear.com\n", ip);         EMIT_H(line);
+    snprintf(line, sizeof(line), "%s prod-switch-match-ggst-game.guiltygear.com\n", ip); EMIT_H(line);
+    snprintf(line, sizeof(line), "%s prod-to3match-ggst-game.guiltygear.com\n", ip);     EMIT_H(line);
 
     EMIT_H("\n# --- UNO / Just Dance 2022 (Ubisoft services, routed by application) ---\n");
     // The shared REST frontend selects JD2022 by its application ID and preserves UNO.
