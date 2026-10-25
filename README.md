@@ -63,6 +63,8 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   lobby host. No ExeFS patches required.
 - **World War Z**: Saber Hydra API and RedLynx redirection (`wwz.wwzapi.com`, `wwz-production.wwzapi.com`,
   `wwzprod.wwzapi.com`, `rlx.hydrapi.net`, `rlxp1a1l.hydrapi.net`). No ExeFS patches required.
+- **Guilty Gear -Strive- Nintendo Switch Edition**: Arc System Works API and matchmaking hosts,
+  plus the existing shared Epic Online Services redirect, for testing the Nextendo GGST backend.
 - **Among Us** (2026.19.0 and 2026.18.0): hosts for the Epic Online Services login, the Innersloth account and the
   three matchmakers, plus ExeFS patches (`amongus_no_dtls/`, one file per game version) that make the game use
   plain UDP, because its DTLS only accepts a certificate held by Innersloth. A patched game cannot play on
