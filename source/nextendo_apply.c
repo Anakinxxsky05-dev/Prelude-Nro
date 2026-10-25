@@ -34,6 +34,8 @@
 
 #include "nextendo_apply.h"
 #include "prelude_io.h"
+#include "prelude_dns_block.h"
+#include "prelude_prodinfo.h"
 #include "nextendo_news.h"
 #include "nextendo_config.h"
 #include "nextendo_hosts.h"
@@ -303,8 +305,13 @@ char *nextendo_hosts_build(const char *ip) {
 }
 
 static bool commitConfig(void) {
-    bool ok = R_SUCCEEDED(fsdevCommitDevice("sdmc"));
-    if (!ok) nextendo_trace("config: SD commit failed");
+    Result rc = fsdevCommitDevice("sdmc");
+    bool ok = R_SUCCEEDED(rc);
+    if (!ok) {
+        char message[96];
+        snprintf(message, sizeof(message), "config: SD commit failed result=%08lx", (unsigned long)rc);
+        nextendo_trace(message);
+    }
     return ok;
 }
 static bool modeConfigReadable(void) {
@@ -319,7 +326,11 @@ static bool modeConfigReadable(void) {
 }
 static bool writeTextFile(const char *path, const char *contents) {
     bool ok = prelude_write_config(path, contents, commitConfig);
-    if (!ok) nextendo_trace("config: write failed; previous configuration retained for recovery");
+    if (!ok) {
+        char message[FS_MAX_PATH + 100];
+        snprintf(message, sizeof(message), "config: write failed path=%s errno=%d; recovery retained", path, errno);
+        nextendo_trace(message);
+    }
     return ok;
 }
 
@@ -510,11 +521,15 @@ static bool fileHas(const char *path, const char *needle) {
     return strstr(buf, needle) != NULL;
 }
 
+static bool activeHostsPath(char *path, size_t capacity);
+static bool fileExists(const char *path);
+
 int nextendo_current_mode(void) {
-    if (fileHas(NEXTENDO_HOSTS_SYSMMC, NEXTENDO_SERVER_IP_DEFAULT) ||
-        fileHas(NEXTENDO_HOSTS_EMUMMC, NEXTENDO_SERVER_IP_DEFAULT) ||
-        fileHas(NEXTENDO_HOSTS_SYSMMC, NEXTENDO_SERVER_IP_ALT) ||
-        fileHas(NEXTENDO_HOSTS_EMUMMC, NEXTENDO_SERVER_IP_ALT))
+    char active[FS_MAX_PATH];
+    if (!activeHostsPath(active,sizeof(active))) return -1;
+    const char *selected = fileExists(active) ? active : NEXTENDO_HOSTS_DEFAULT;
+    if (fileHas(selected, NEXTENDO_SERVER_IP_DEFAULT) ||
+        fileHas(selected, NEXTENDO_SERVER_IP_ALT))
         return 0;   // CHOICE_NEXTENDO
     if (captureFlagPresent()) {
         if (capturePatchesPresent())
@@ -625,6 +640,57 @@ static bool fileExists(const char *path) {
     return stat(path, &st) == 0;
 }
 
+// Atmosphere selects one hosts file for the current boot. Never infer its
+// mode from the other NAND, and never overwrite the shared default file.
+static bool activeHostsPath(char *path, size_t capacity) {
+    BootType boot = nextendo_detect_boot();
+    if (boot == BOOT_UNKNOWN) {
+        nextendo_trace("mode: boot environment unknown; hosts unchanged");
+        return false;
+    }
+    const char *generic = boot == BOOT_SYSMMC ? NEXTENDO_HOSTS_SYSMMC : NEXTENDO_HOSTS_EMUMMC;
+    if (boot == BOOT_EMUMMC) {
+        char *ini = NULL; size_t length = 0;
+        if (!prelude_read_config("sdmc:/emuMMC/emummc.ini", &ini, &length)) {
+            nextendo_trace("mode: unreadable emuMMC configuration; hosts unchanged");
+            return false;
+        }
+        bool section = false, found = false;
+        unsigned long id = 0;
+        const char *line = ini;
+        while (line && *line) {
+            const char *end = strchr(line, '\n');
+            size_t n = end ? (size_t)(end-line) : strlen(line);
+            while (n && (*line==' ' || *line=='\t')) { ++line; --n; }
+            if (n && *line=='[') section = n>=8 && !strncmp(line,"[emummc]",8);
+            else if (section && n>=2 && !strncmp(line,"id",2)) {
+                const char *p=line+2;
+                while (*p==' ' || *p=='\t') ++p;
+                if (*p=='=') {
+                    ++p; char *tail = NULL; errno=0;
+                    id=strtoul(p,&tail,16);
+                    while (*tail==' ' || *tail=='\t' || *tail=='\r') ++tail;
+                    if (errno || tail==p || (*tail && *tail!='\n' && *tail!=';' && *tail!='#') || id>0xffffffffUL) {
+                        free(ini); nextendo_trace("mode: invalid emuMMC id; hosts unchanged"); return false;
+                    }
+                    found=true; break;
+                }
+            }
+            line=end ? end+1 : NULL;
+        }
+        free(ini);
+        if (found) {
+            int n=snprintf(path,capacity,"sdmc:/atmosphere/hosts/emummc_%04lx.txt",id);
+            if (n<0 || (size_t)n>=capacity) return false;
+            if (fileExists(path)) return true;
+        }
+    }
+    int n=snprintf(path,capacity,"%s",generic);
+    return n>=0 && (size_t)n<capacity;
+}
+
+static const char *activeHostsBackupPath(const char *active, char *backup, size_t capacity);
+
 // --- Provisionne le stack cert-trust Nextendo (romfs du .nro -> SD) : disable_ca_verification
 //     (ssl : jeux / auth / BAAS -> notre VPS) + disable_browser_ca_verification + cabundle + rootCA.pem
 //     (WebView "Lier un compte"). Tout est gate par build-id firmware -> seul ce qui matche la console
@@ -730,20 +796,18 @@ static bool nextendo_provision_all(void) {
 #define NEXTENDO_BACKUP_DEFAULT NEXTENDO_BACKUP_DIR "/default.txt"
 #define NEXTENDO_BACKUP_CFG    "sdmc:/switch/prelude_backup.cfg"
 
+static const char *activeHostsBackupPath(const char *active, char *backup, size_t capacity) {
+    const char *name = strrchr(active, '/');
+    if (!name) return NULL;
+    int n=snprintf(backup,capacity,"%s/%s",NEXTENDO_BACKUP_DIR,name+1);
+    return n>=0 && (size_t)n<capacity ? backup : NULL;
+}
+
 static bool copyFileRaw(const char *src, const char *dst) {
-    FILE *in = fopen(src, "rb");
-    if (!in) return false;
-    FILE *out = fopen(dst, "wb");
-    if (!out) { fclose(in); return false; }
-    char buf[4096];
-    size_t n;
-    bool ok = true;
-    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
-        if (fwrite(buf, 1, n, out) != n) { ok = false; break; }
-    }
-    fclose(in);
-    fclose(out);
-    if (!ok) remove(dst);   // pas de demi-copie sur la carte
+    char *text = NULL; size_t length = 0;
+    if (!prelude_read_config(src,&text,&length) || !text) return false;
+    bool ok = writeTextFile(dst,text);
+    free(text);
     return ok;
 }
 
@@ -1046,6 +1110,8 @@ void nextendo_s3_status(NextendoS3Status *out) {
 
 bool nextendo_apply_nextendo_ip(const char *ip) {
     if (!modeConfigReadable()) return false;
+    char active[FS_MAX_PATH], backup[FS_MAX_PATH];
+    if (!activeHostsPath(active,sizeof(active)) || !activeHostsBackupPath(active,backup,sizeof(backup))) return false;
     remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE par ce chemin aussi
     if (R_FAILED(ensureDir(NEXTENDO_HOSTS_DIR))) return false;
     if (!nextendo_provision_all()) {
@@ -1058,18 +1124,16 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
     if (nextendo_news_patch_for_console()) nextendo_news_purge("nextendo");
     char *hosts = nextendo_hosts_build(ip);
     if (!hosts) return false;
-    // Le default.txt de l'utilisateur est sauvegarde AVANT d'etre ecrase ; apply_nintendo
-    // le remet. Sans cette sauvegarde on detruirait ses entrees a la premiere activation.
-    if (fileExists(NEXTENDO_HOSTS_DEFAULT) && !fileExists(NEXTENDO_BACKUP_DEFAULT)) {
-        ensureDir("sdmc:/switch");
-        ensureDir(NEXTENDO_BACKUP_DIR);
-        copyFileRaw(NEXTENDO_HOSTS_DEFAULT, NEXTENDO_BACKUP_DEFAULT);
+    // Preserve the current environment's original hosts once. default.txt and
+    // the other NAND's explicit hosts remain byte-for-byte unchanged.
+    if (backupCandidateOk(active) && !fileExists(backup)) {
+        if (R_FAILED(ensureDir(NEXTENDO_BACKUP_DIR)) || !copyFileRaw(active,backup) || !commitConfig()) {
+            free(hosts); nextendo_trace("mode: original hosts backup failed; hosts unchanged"); return false;
+        }
     }
-    bool a = writeTextFile(NEXTENDO_HOSTS_SYSMMC, hosts);
-    bool b = writeTextFile(NEXTENDO_HOSTS_EMUMMC, hosts);
-    bool d = writeTextFile(NEXTENDO_HOSTS_DEFAULT, hosts);
-    if (!d) nextendo_trace("28d WARN: default.txt non ecrit");
+    bool a = writeTextFile(active, hosts);
     free(hosts);
+    if (!a) return false;
     // add_defaults_to_dns_hosts = 1, comme en mode NINTENDO. C'ETAIT A 0 : en mode
     // NEXTENDO la table de telemetrie native d'Atmosphere n'etait donc PAS fusionnee,
     // et le seul blocage etait nos deux lignes receive-%.dg/er. Signale publiquement
@@ -1089,11 +1153,11 @@ bool nextendo_apply_nextendo_ip(const char *ip) {
     // c'est seulement la source du blocage qui change. En mode NINTENDO, add_defaults
     // reste a 1 : nos lignes sont parties, la table native reprend le relais.
     bool i = iniSetDnsMitm(true, false);
-    bool p = iniSetBlankProdinfoEmummc(false);
+    bool p = nextendo_detect_boot() != BOOT_EMUMMC || iniSetBlankProdinfoEmummc(false);
     if (!p) nextendo_trace("29 WARN: iniSetBlankProdinfoEmummc(false) a echoue -> risque 2123-0011");
     nextendo_purge_leaks();
     bool durable = commitConfig();
-    return a && b && d && i && p && durable;
+    return a && i && p && durable;
 }
 
 bool nextendo_apply_nextendo(void) {
@@ -1122,17 +1186,19 @@ static char *readSmallTextFile(const char *path, size_t *outLen) {
 int nextendo_hosts_refresh(void) {
     if (nextendo_current_mode() != 0) return 0;   // seulement si le mode Nextendo est DEJA actif
 
-    static const char *paths[3] = { NEXTENDO_HOSTS_SYSMMC, NEXTENDO_HOSTS_EMUMMC, NEXTENDO_HOSTS_DEFAULT };
-    char  *cur[3]    = { NULL, NULL, NULL };
-    size_t curLen[3] = { 0, 0, 0 };
-    for (int i = 0; i < 3; i++) cur[i] = readSmallTextFile(paths[i], &curLen[i]);
+    char active[FS_MAX_PATH];
+    if (!activeHostsPath(active,sizeof(active))) return 0;
+    const char *paths[1] = { active };
+    char  *cur[1]    = { NULL };
+    size_t curLen[1] = { 0 };
+    for (int i = 0; i < 1; i++) cur[i] = readSmallTextFile(paths[i], &curLen[i]);
 
-    const char *ip = nextendo_hosts_pick_ip((const char *const *)cur, 3,
+    const char *ip = nextendo_hosts_pick_ip((const char *const *)cur, 1,
                                             NEXTENDO_SERVER_IP_DEFAULT, NEXTENDO_SERVER_IP_ALT);
     char *expected = nextendo_hosts_build(ip);
     int rewritten = 0;
     if (expected) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 1; i++) {
             HostsRefreshAction act = nextendo_hosts_refresh_action(cur[i], curLen[i], expected,
                                                                    NEXTENDO_HOSTS_HEADER_MARK);
             if (act != HOSTS_REWRITE) continue;
@@ -1145,45 +1211,43 @@ int nextendo_hosts_refresh(void) {
         }
         free(expected);
     }
-    for (int i = 0; i < 3; i++) free(cur[i]);
+    for (int i = 0; i < 1; i++) free(cur[i]);
     if (rewritten > 0) fsdevCommitDevice("sdmc");
     return rewritten;
 }
 
+static int prodinfoFlag(const char *key) {
+    char *text = NULL; size_t length = 0;
+    if (!prelude_read_config(NEXTENDO_EXOSPHERE_INI, &text, &length)) return -1;
+    int state = prelude_prodinfo_flag(text, key);
+    free(text);
+    return state;
+}
+
+int nextendo_prodinfo_emummc_state(void) {
+    return prodinfoFlag("blank_prodinfo_emummc");
+}
+
 bool nextendo_prodinfo_emummc_blanked(void) {
-    return fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1");
+    return nextendo_prodinfo_emummc_state() == 1;
 }
 
 bool nextendo_apply_nintendo(void) {
     return nextendo_apply_nintendo_ex(true);
 }
 
-bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
+static bool applyNintendoPolicy(bool blankProdinfo, bool blockNintendoDNS) {
     if (!modeConfigReadable()) return false;
+    char active[FS_MAX_PATH], backup[FS_MAX_PATH];
+    if (!activeHostsPath(active,sizeof(active)) || !activeHostsBackupPath(active,backup,sizeof(backup))) return false;
     nextendo_trace("20 apply_nintendo: entree");
     remove(NEXTENDO_CAPTURE_FLAG);   // sortir du mode CAPTURE ; apply_capture le repose apres
-    // Nos hosts sont SUPPRIMES, pas renommes : le retour en mode Nextendo les reecrit depuis
-    // NEXTENDO_HOSTS et n'a jamais relu le .bak, qui ne servait donc qu'a garder l'IP du VPS
-    // lisible sur la carte.
-    remove(NEXTENDO_HOSTS_SYSMMC);
-    remove(NEXTENDO_HOSTS_EMUMMC);
-    // default.txt : on n'efface que S'IL EST DE NOUS. Un default.txt que l'utilisateur
-    // ecrivait deja avant Prelude ne nous appartient pas, et le supprimer lui ferait perdre
-    // ses entrees sans qu'il ait rien demande. La restauration juste en dessous remet la
-    // version sauvegardee quand il y en a une.
-    if (fileHas(NEXTENDO_HOSTS_DEFAULT, "NEXTENDO NETWORK")) {
-        remove(NEXTENDO_HOSTS_DEFAULT);
-        nextendo_trace("21c default.txt (le notre) supprime");
-    }
-    nextendo_trace("21 hosts supprimes");
-    // L'utilisateur a demande a retrouver SES redirections d'origine : on les remet
-    // APRES la suppression. La sauvegarde a ete refusee a la creation si elle contenait
-    // une de nos IP, donc rien de Nextendo ne peut revenir par ce chemin.
-    if (nextendo_backup_use_for_nintendo() && nextendo_hosts_backup_exists()) {
-        int nb = nextendo_hosts_backup_restore();
-        nextendo_trace(nb ? "21b hosts utilisateur restaures"
-                          : "21b WARN: restauration hosts utilisateur echouee");
-    }
+    // Keep an explicit Nintendo file, even when empty, so a legacy Nextendo
+    // default.txt cannot become the active file after this switch.
+    char *restored = NULL; size_t restoredLength = 0;
+    if (blockNintendoDNS && nextendo_backup_use_for_nintendo() && backupCandidateOk(backup) &&
+        !prelude_read_config(backup,&restored,&restoredLength)) return false;
+    // Shared default and the other NAND's hosts remain unchanged.
     nextendo_purge_leaks();
     nextendo_trace("22 purge_leaks ok");
 
@@ -1193,6 +1257,11 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // blanchi par-dessus. C'est precisement ce qu'il ne faut pas, et ca donne 2137-7403.
     nextendo_purge_stale();
     nextendo_trace("23 purge_stale ok");
+    for (unsigned n=0; n<sizeof(NEXTENDO_STALE_FILES)/sizeof(NEXTENDO_STALE_FILES[0]); ++n) {
+        if (fileExists(NEXTENDO_STALE_FILES[n])) {
+            free(restored); nextendo_trace("mode: legacy resource cleanup failed; routing unchanged"); return false;
+        }
+    }
 
     // Retirer AUSSI le stack cert-trust courant (patches disable_ca_verification, CA Nextendo
     // injectee dans le navigateur, rootCA.pem). Mesure sur une console de test : il survivait a
@@ -1202,6 +1271,7 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // repose tout au retour en mode Nextendo.
     if (!removeTreeRomfs("romfs:/sd", "sdmc:")) {
         nextendo_trace("24b removeTreeRomfs a echoue");
+        free(restored);
         return false;
     }
     nextendo_trace("24 removeTreeRomfs ok");
@@ -1209,44 +1279,44 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
     // retelechargent au demarrage suivant (le patch de signature vient d'etre retire avec le
     // reste de romfs:/sd).
     nextendo_news_purge("nintendo");
-    removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:"); // SSBU online-deluxe mod
-    removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:"); // SMB35 batailles speciales
-    nextendo_account_link_remove();                    // sysmodule network_mitm v2 fallback
+    bool quickplayRemoved = removeTreeRomfs("romfs:/ssbu_quickplay", "sdmc:");
+    bool battleRemoved = removeTreeRomfs("romfs:/smb35_spbattle", "sdmc:");
+    bool accountRemoved = nextendo_account_link_remove();
+    if (!quickplayRemoved || !battleRemoved || !accountRemoved) {
+        free(restored); nextendo_trace("mode: Nintendo cleanup incomplete; routing unchanged"); return false;
+    }
     nextendo_trace("24d smb35_spbattle retire");
     nextendo_trace("24c ssbu_quickplay retire");
     nextendo_trace("24e account_link retire");
 
-    // TELEMETRIE. L'ancien code posait enable_dns_mitm=0, ce qui desactivait du meme coup le
-    // blocage de telemetrie natif d'Atmosphere : la console se retrouvait MOINS protegee qu'une
-    // install d'origine. Doc Atmosphere : "By default, atmosphere redirects resolution requests
-    // for official telemetry servers, redirecting them to a loopback address." Nos hosts etant
-    // partis, ce sont les entrees par defaut d'Atmosphere qui s'appliquent. Elles sont COMPILEES
-    // DANS le sysmodule DNS.mitm (receive-%.dg/er.srv.nintendo.net -> 127.0.0.1), pas lues depuis
-    // un fichier : add_defaults_to_dns_hosts=1 les fusionne avec la config hosts active, donc le
-    // blocage vaut des le boot meme si /atmosphere/hosts/ est vide. Ne PAS ecrire nous-memes un
-    // default.txt "de securite" : ce fichier appartient a l'utilisateur (beaucoup y gardent leurs
-    // propres entrees), il survivrait a la desinstallation de Prelude sur une carte censee etre
-    // propre, et notre copie de la liste deriverait derriere celle d'Atmosphere.
-    // On laisse donc le DNS-MITM ACTIF et
-    // on remet add_defaults=1 : la telemetrie est bloquee, tout le reste resout normalement,
-    // l'eShop continue de marcher (la raison d'etre du mode Nintendo).
-    // Garde-fou : si nos hosts resistent a l'effacement, garder le DNS-MITM actif redirigerait
-    // en douce vers nos serveurs une console censee etre sur Nintendo. Dans ce cas seulement, on
-    // retombe sur l'ancien comportement (dns_mitm=0), qui neutralise nos hosts a coup sur.
-    bool hostsGone = !fileExists(NEXTENDO_HOSTS_SYSMMC) && !fileExists(NEXTENDO_HOSTS_EMUMMC);
-    bool i = hostsGone ? iniSetDnsMitm(true, true) : iniSetDnsMitm(false, false);
-    nextendo_trace(hostsGone ? "25 ini ok (hosts partis, dns_mitm garde actif)"
-                             : "25 ini ok (SECOURS : hosts resistants, dns_mitm coupe)");
+    // Keep Atmosphere DNS interception and telemetry defaults enabled. The
+    // explicit hosts file written below adds the official Nintendo DNS block.
+    bool i = iniSetDnsMitm(true, true);
+    nextendo_trace(i ? "25 Nintendo DNS settings prepared" : "25 Nintendo DNS settings failed");
 
     // emuMMC : PRODINFO blanchi -> anti-ban si online vrai Nintendo (sans effet sur une console
     // sysNAND-only : l'UI previent). Le joueur peut choisir de garder le VRAI PRODINFO pour jouer
     // en ligne chez Nintendo depuis l'emuMMC : c'est son choix, l'ecran dit le risque.
-    bool p = iniSetBlankProdinfoEmummc(blankProdinfo);
+    bool p = nextendo_detect_boot() != BOOT_EMUMMC || iniSetBlankProdinfoEmummc(blankProdinfo);
     nextendo_trace(blankProdinfo ? "26 blank_prodinfo_emummc=1"
                                  : "26 blank_prodinfo_emummc=0 (choix du joueur)");
+    // Install the selected DNS policy only after resource cleanup/settings succeed.
+    if (!i || !p) { free(restored); return false; }
+    char *blocked = blockNintendoDNS ? prelude_nintendo_block_hosts(restored) : NULL;
+    if (blockNintendoDNS && !blocked) { free(restored); return false; }
+    bool hostsWritten=writeTextFile(active,blocked ? blocked : (restored ? restored : "# Prelude explicit diagnostic capture DNS.\n"));
+    free(blocked);
+    free(restored);
+    if (!hostsWritten) return false;
+    bool hostsGone = !fileHas(active,NEXTENDO_SERVER_IP_DEFAULT) && !fileHas(active,NEXTENDO_SERVER_IP_ALT) && !fileHas(active,NEXTENDO_HOSTS_HEADER_MARK);
+    if (!hostsGone) { nextendo_trace("mode: Nintendo hosts verification failed"); return false; }
     bool durable = commitConfig();
-    nextendo_trace("27 apply_nintendo: TERMINE");
-    return i && p && durable;
+    nextendo_trace(durable ? "27 apply_nintendo: complete; reboot required" : "27 apply_nintendo: commit failed");
+    return durable;
+}
+
+bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
+    return applyNintendoPolicy(blankProdinfo, true);
 }
 
 // --- Mode CAPTURE (cache) : vrai Nintendo + patches disable_ca_verification du ssl ---
@@ -1261,7 +1331,7 @@ bool nextendo_apply_nintendo_ex(bool blankProdinfo) {
 // d'avertissement le dit, et le mode n'est accessible que par une combinaison cachee.
 bool nextendo_apply_capture(void) {
     nextendo_trace("40 apply_capture: entree");
-    if (!nextendo_apply_nintendo()) {
+    if (!applyNintendoPolicy(true, false)) {
         nextendo_trace("41 apply_capture: apply_nintendo a echoue -> annulation");
         return false;
     }
@@ -1694,9 +1764,9 @@ bool nextendo_account_link_is_installed(void) {
 
 bool nextendo_account_link_is_recommended(void) {
     BootType boot = nextendo_detect_boot();
-    if (boot == BOOT_EMUMMC && fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_emummc=1"))
+    if (boot == BOOT_EMUMMC && prodinfoFlag("blank_prodinfo_emummc") == 1)
         return true;
-    if (fileHas(NEXTENDO_EXOSPHERE_INI, "blank_prodinfo_sysmmc=1"))
+    if (boot == BOOT_SYSMMC && prodinfoFlag("blank_prodinfo_sysmmc") == 1)
         return true;
     return false;
 }
@@ -1762,13 +1832,17 @@ bool nextendo_account_link_install(void) {
     return true;
 }
 
-void nextendo_account_link_remove(void) {
-    remove(ACCOUNT_LINK_BOOTFLAG);
-    remove(ACCOUNT_LINK_DIR "/mitm.lst");
-    remove(ACCOUNT_LINK_DIR "/exefs.nsp");
+bool nextendo_account_link_remove(void) {
+    bool ok = true;
+    const char *files[] = {ACCOUNT_LINK_BOOTFLAG, ACCOUNT_LINK_DIR "/mitm.lst", ACCOUNT_LINK_DIR "/exefs.nsp"};
+    for (unsigned i=0; i<sizeof(files)/sizeof(files[0]); ++i) {
+        if (remove(files[i]) != 0 && errno != ENOENT) ok = false;
+        if (fileExists(files[i])) ok = false;
+    }
     rmdir(ACCOUNT_LINK_FLAGS);
     rmdir(ACCOUNT_LINK_DIR);
-    iniSetNetworkMitm(false);
-    fsdevCommitDevice("sdmc");
-    nextendo_trace("24e account_link retire");
+    if (!iniSetNetworkMitm(false)) ok = false;
+    if (!commitConfig()) ok = false;
+    nextendo_trace(ok ? "24e account_link removed" : "24e account_link removal failed");
+    return ok;
 }

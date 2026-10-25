@@ -26,7 +26,7 @@ typedef enum { BOOT_UNKNOWN = -1, BOOT_SYSMMC = 0, BOOT_EMUMMC = 1 } BootType;
 void nextendo_trace(const char *step);
 #define NEXTENDO_TRACE_PATH "sdmc:/prelude_trace.txt"
 
-// Detecte le storage de boot (cosmetique : on ecrit les 2 fichiers de toute facon).
+// Detecte le storage de boot; les hosts sont modifies seulement pour cette NAND.
 BootType nextendo_detect_boot(void);
 
 // Mode ACTUELLEMENT charge : 0 = NEXTENDO, 1 = NINTENDO, 2 = CAPTURE (memes valeurs que
@@ -34,7 +34,7 @@ BootType nextendo_detect_boot(void);
 // du mode CAPTURE (qui exige aussi les patches disable_ca_verification sur la carte).
 int nextendo_current_mode(void);
 
-// Mode NEXTENDO : ecrit les hosts (sysmmc.txt + emummc.txt) + enable_dns_mitm=1.
+// Mode NEXTENDO : ecrit les hosts de la NAND courante + enable_dns_mitm=1.
 // ip : IP du serveur à utiliser (NEXTENDO_SERVER_IP_DEFAULT ou NEXTENDO_SERVER_IP_ALT).
 bool nextendo_apply_nextendo_ip(const char *ip);
 
@@ -44,12 +44,14 @@ bool nextendo_apply_nextendo(void);
 // Mode NINTENDO : renomme les hosts Nextendo en .bak + enable_dns_mitm=0 -> tout redevient normal.
 bool nextendo_apply_nintendo(void);
 
-// Mode NINTENDO avec choix du PRODINFO en emuMMC : true = blanchi (defaut, anti-ban, pas
-// d'online Nintendo en emuMMC), false = PRODINFO reel (online Nintendo possible, risque de ban).
+// Nintendo mode: both PRODINFO choices keep Nintendo DNS blocked. The identity
+// setting takes effect only after reboot and never grants a ban-free guarantee.
 bool nextendo_apply_nintendo_ex(bool blankProdinfo);
 
 // exosphere.ini contient blank_prodinfo_emummc=1.
 bool nextendo_prodinfo_emummc_blanked(void);
+// Saved setting for the next boot: -1 unreadable/invalid, 0 disabled, 1 enabled.
+int nextendo_prodinfo_emummc_state(void);
 
 // Mode CAPTURE (cache) : mode NINTENDO + patches disable_ca_verification du ssl + PRODINFO reel
 // en emuMMC + marqueur. Pour capturer avec mitmproxy uniquement ; voir l'avertissement dans l'UI.
@@ -101,7 +103,7 @@ bool nextendo_account_link_is_recommended(void);
 // Vrai si le firmware rend le fallback inutilisable (HOS >= 23.0.0, issue #42).
 bool nextendo_account_link_fw_blocked(void);
 bool nextendo_account_link_install(void);
-void nextendo_account_link_remove(void);
+bool nextendo_account_link_remove(void);
 
 // --- Etat des correctifs de jeux (Game Patches) poses sur la carte SD ---
 #define NEXTENDO_MAX_GAME_FOLDERS 8

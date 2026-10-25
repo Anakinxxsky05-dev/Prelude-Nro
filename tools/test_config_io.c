@@ -52,6 +52,11 @@ int main(void) {
     for (int i=1;i<=3;++i) {reset();fail_commit=i;assert(!prelude_write_config(path,"new",commit));original();}
     reset();assert(prelude_write_config(path,"new",commit));assert(prelude_read_config(backup,&text,&size));assert(strstr(text,"keep=yes"));free(text);
     assert(prelude_write_config(path,"next",commit));assert(prelude_read_config(path,&text,&size));assert(!strcmp(text,"next"));free(text);
+    // Nintendo mode removes generated hosts but the recovery sibling remains.
+    // Re-enabling Nextendo must not permanently fail because only that sibling exists.
+    assert(remove(path)==0);
+    assert(prelude_write_config(path,"enabled again",commit));
+    assert(prelude_read_config(path,&text,&size));assert(!strcmp(text,"enabled again"));free(text);
     reset();FILE*f=fopen(path,"wb");assert(f);fwrite("a\0b",1,3,f);fclose(f);assert(!prelude_read_config(path,&text,&size));
     remove(path);remove(backup);remove(staged);assert(prelude_read_config(path,&text,&size));assert(text==NULL&&size==0);
     puts("PASS: config seek/read/close/write/rename/commit failures preserve original settings");

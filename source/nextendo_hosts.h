@@ -15,7 +15,7 @@
 //  Mode NEXTENDO : redirige la plupart des domaines Nintendo -> nos serveurs,
 //  bloque la telemetrie. Exceptions : d4c (MAJ systeme), ctest (browser conntest)
 //  et *.nintendowifi.net resolvent vers le vrai Nintendo pour eviter popups.
-//  Ecrit par l'app dans /atmosphere/hosts/sysmmc.txt ET /atmosphere/hosts/emummc.txt.
+//  Ecrit seulement dans les hosts de la NAND courante, avec priorite emuMMC-ID.
 //
 //  Regle Atmosphere : la DERNIERE ligne qui matche gagne.
 //    '*' = 0+ caracteres   '%' = lp1
@@ -47,10 +47,7 @@ char *nextendo_hosts_build(const char *ip);
 
 #define NEXTENDO_HOSTS_SYSMMC "sdmc:/atmosphere/hosts/sysmmc.txt"
 #define NEXTENDO_HOSTS_EMUMMC "sdmc:/atmosphere/hosts/emummc.txt"
-// default.txt : Atmosphere y retombe selon la configuration de demarrage et selon les
-// installations deja en place (demande de Kazu, 2026-09). Ce fichier APPARTIENT a
-// l'utilisateur — beaucoup y gardent leurs propres entrees —, donc on le sauvegarde avant
-// de l'ecrire et on le REMET tel quel en mode Nintendo, au lieu de l'effacer.
+// Shared fallback belongs to the user. Mode switching and refresh never change it.
 #define NEXTENDO_HOSTS_DEFAULT "sdmc:/atmosphere/hosts/default.txt"
 #define NEXTENDO_HOSTS_DIR    "sdmc:/atmosphere/hosts"
 #define NEXTENDO_SETTINGS_INI "sdmc:/atmosphere/config/system_settings.ini"

@@ -653,9 +653,9 @@ int main(int argc, char **argv) {
                         case RAIL_FLAG: screen = SCREEN_FLAG_MENU; break;
                         case RAIL_ACCOUNT:
                             if (accountInstalled) {
-                                nextendo_account_link_remove();
-                                accountInstalled = false;
-                                snprintf(status, sizeof(status), "%s", lang_str(STR_ACCOUNT_TOAST_OFF));
+                                bool removed = nextendo_account_link_remove();
+                                accountInstalled = nextendo_account_link_is_installed();
+                                snprintf(status, sizeof(status), "%s", lang_str(removed ? STR_ACCOUNT_TOAST_OFF : STR_STATUS_SD_ERROR));
                             } else {
                                 if (accountRecommended) {
                                     accountInstalled = nextendo_account_link_install();
@@ -849,7 +849,7 @@ int main(int argc, char **argv) {
                 screen = SCREEN_PICKER;
             }
             if (screen == SCREEN_PRODINFO_ASK)
-                ui_draw_prodinfo_ask(nextendo_prodinfo_emummc_blanked());
+                ui_draw_prodinfo_ask(nextendo_prodinfo_emummc_state());
 
         } else if (screen == SCREEN_CAPTURE_ACTIVE) {
             // A / Y menent a la confirmation habituelle du mode choisi ; B ferme le rappel.
