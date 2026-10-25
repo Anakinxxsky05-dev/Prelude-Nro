@@ -262,8 +262,8 @@ char *nextendo_hosts_build(const char *ip) {
     snprintf(line, sizeof(line), "%s nswitch.f13.illfonic.com\n", ip);          EMIT_H(line);
 
     EMIT_H("\n# --- Among Us (login Epic Online Services, compte Innersloth, matchmakers regionaux) ---\n");
-    // api.epicgames.dev sert aussi d'autres jeux Epic : le service de comptes Nextendo ne traite
-    // que les titres Nextendo pris en charge et retransmet le reste au vrai Epic.
+    // api.epicgames.dev is shared with other Epic games. The Nextendo account service
+    // handles supported Nextendo titles and forwards other requests to Epic.
     snprintf(line, sizeof(line), "%s api.epicgames.dev\n", ip);                 EMIT_H(line);
     snprintf(line, sizeof(line), "%s backend.innersloth.com\n", ip);            EMIT_H(line);
     snprintf(line, sizeof(line), "%s matchmaker.among.us\n", ip);               EMIT_H(line);
