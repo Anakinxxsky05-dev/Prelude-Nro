@@ -419,7 +419,7 @@ int ui_pane_rows(int railSel, bool ssbuInstalled) {
         case RAIL_S2:   return 2;                        // Splatoon 2 + Splatoon 3
         case RAIL_SMB35: return 2;   // BCAT + batailles speciales
         case RAIL_ACCOUNT: return 1; // Fallback de vinculacion
-        case RAIL_LANG: return 6;                        // EN / ES / PT / FR / ZH / RU
+        case RAIL_LANG: return 7;                        // EN / ES / PT / FR / ZH / RU / IT
         default:        return 1;                        // drapeau : une action
     }
 }
@@ -628,13 +628,13 @@ void ui_draw_picker(int railSel, int paneSel, bool paneFocused, int current,
               lang_str(accountRecommended ? STR_ACCOUNT_REC_YES : STR_ACCOUNT_REC_NO));
         y += FS_CAP + SP_SM;
     } else {
-        // Six langues : a la hauteur standard (ROW_H), la liste deborderait sur
-        // la barre de boutons. Le panneau ne laisse que 492 px sous l'intitule,
-        // six lignes de 92 en prendraient 552 — d'ou des lignes plus basses.
+        // Sept langues : a la hauteur standard (ROW_H), la liste deborderait sur
+        // la barre de boutons. Le panneau ne laisse que 492 px sous l'intitule ;
+        // sept lignes de 60 px (+ l'espacement) y tiennent, sept de 92 non.
         #define LANG_ROW_H 60
-        static const StringID ids[6] = { STR_LANG_EN, STR_LANG_ES, STR_LANG_PT, STR_LANG_FR,
-                                         STR_LANG_ZH, STR_LANG_RU };
-        for (int i = 0; i < 6; i++) {
+        static const StringID ids[7] = { STR_LANG_EN, STR_LANG_ES, STR_LANG_PT, STR_LANG_FR,
+                                         STR_LANG_ZH, STR_LANG_RU, STR_LANG_IT };
+        for (int i = 0; i < 7; i++) {
             int rowY = y;
             y = chromeRowH(b, st, x, y, w, FOC(i), lang_str(ids[i]), NULL, LANG_ROW_H);
             if (i == (int)g_lang)

@@ -11,7 +11,7 @@
 // Required Notice: Copyright 2026 Nextendo Network
 
 // ============================================================
-//  Prelude — internationalisation (EN / ES / PT / FR / ZH / RU).
+//  Prelude — internationalisation (EN / ES / PT / FR / ZH / RU / IT).
 //  Les chaînes sont indexées par StringID. La langue courante
 //  est persistée dans sdmc:/switch/prelude_lang.txt (1 octet).
 // ============================================================
@@ -25,6 +25,7 @@ typedef enum {
     LANG_FR,    // Français
     LANG_ZH,    // 中文
     LANG_RU,    // Русский
+    LANG_IT,    // Italiano
 } Lang;
 
 typedef enum {
@@ -132,6 +133,7 @@ typedef enum {
     STR_LANG_FR,                // "Français"
     STR_LANG_ZH,                // "中文"
     STR_LANG_RU,                // "Русский"
+    STR_LANG_IT,                // "Italiano"
     STR_LANG_DEFAULT,           // "(Default)"
     STR_LANG_A_SELECT,          // "A: Select"
     STR_LANG_B_BACK,            // "B: Back"
