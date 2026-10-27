@@ -805,6 +805,11 @@ int main(int argc, char **argv) {
                 nextendo_reboot();
                 snprintf(status, sizeof(status), "%s", lang_str(STR_STATUS_REBOOT_FAIL));
                 screen = SCREEN_PICKER;
+            } else if (patchesUnchanged && (k & (HidNpadButton_B | HidNpadButton_Plus))) {
+                // Nothing was written: the reboot is only a courtesy (the patches may not have been
+                // loaded at boot yet), so the player may go back to the menu without rebooting.
+                // After a real change the reboot stays mandatory.
+                screen = SCREEN_PICKER;
             }
 
         } else if (screen == SCREEN_NEWS_REBOOT) {
