@@ -54,7 +54,7 @@ One switch to Nextendo mode and these are configured with the proper hosts and p
   deployed automatically under Nextendo mode, with Demonware DNS redirection (`*.demonware.net`).
 - **Diablo III: Eternal Collection**: Demonware hosts redirection configured for private servers
   (no ExeFS patches required).
-- **Minecraft Dungeons II** (1.1.1.0): ExeFS listen-host patch (`dungeons2-nextendo/`) so the party
+- **Minecraft Dungeons II** (1.1.3.0): ExeFS listen-host patch (`dungeons2-nextendo/`) so the party
   leader's game hosts the session, plus PlayFab, Minecraft and Xbox Live redirection. The Xbox Live
   lines apply to every game while Nextendo mode is on.
 - **Dragon Ball FighterZ** (1.50): Bandai Namco API redirection (`dbf.channel.or.jp`) and the NEX

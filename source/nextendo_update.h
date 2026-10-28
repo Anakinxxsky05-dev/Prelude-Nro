@@ -676,7 +676,9 @@
 // PRODINFO choice does not disable the block. Nextendo mode restores redirects.
 // build 99: v4.0.14. World War Z hosts (wwz*.wwzapi.com, rlx*.hydrapi.net).
 // build 100: v4.0.15. Includes Guilty Gear -Strive- service redirects for Nextendo.
-#define NEXTENDO_BUILD 100
+// build 101: v4.0.16. Minecraft Dungeons II host patch ported to the 1.1.3.0 update
+// (dungeons2-nextendo/C6B32F4D3D4243FF190B082B4F6AEA18.ips); the 1.1.1.0 patch is retired.
+#define NEXTENDO_BUILD 101
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
@@ -692,7 +694,7 @@
 #define NEXTENDO_VERSION_MINOR 0
 #endif
 #ifndef NEXTENDO_VERSION_PATCH
-#define NEXTENDO_VERSION_PATCH 15
+#define NEXTENDO_VERSION_PATCH 16
 #endif
 
 typedef struct {
